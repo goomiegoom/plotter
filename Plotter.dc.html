@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
+  input, select, button, textarea { font-family: inherit; }
+  input:focus, select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #d3d8df; border-radius: 6px; border: 2px solid #fbfcfd; }
+  ::-webkit-scrollbar-thumb:hover { background: #b9c0c9; }
+  .gcell:focus { background: #eff5ff; }
+</style>
+</helmet>
+
+<div style="display:flex; flex-direction:column; height:100vh; background:#f4f6f8; font-family:Helvetica,'Helvetica Neue',Arial,sans-serif; color:#1f2733; -webkit-font-smoothing:antialiased;">
+
+  <!-- TOP BAR -->
+  <div style="height:52px; flex:0 0 52px; border-bottom:1px solid #e5e8ec; background:#ffffff; display:flex; align-items:center; padding:0 18px; gap:12px;">
+    <div style="width:22px; height:22px; border-radius:5px; background:#1f2733; display:flex; align-items:center; justify-content:center;">
+      <div style="width:9px; height:9px; border-left:1.5px solid #fff; border-bottom:1.5px solid #fff;"></div>
+    </div>
+    <div style="font-size:14px; font-weight:700; letter-spacing:-0.01em;">Plotter</div>
+    <div style="font-size:12px; color:#9aa3ad; padding-left:2px;">Publication figure builder</div>
+    <div style="flex:1;"></div>
+    <div style="font-size:11.5px; color:#6b7280; display:flex; align-items:center; gap:6px;">
+      <span style="width:7px; height:7px; border-radius:50%; background:#16a34a; display:inline-block;"></span>
+      Lab standard preset
+    </div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div style="flex:1; display:flex; min-height:0;">
+
+    <!-- LEFT COLUMN -->
+    <div style="width:400px; flex:0 0 400px; border-right:1px solid #e5e8ec; background:#fbfcfd; overflow-y:auto;">
+      <div style="padding:16px 16px 40px; display:flex; flex-direction:column; gap:20px;">
+
+        <!-- PLOT TYPE SWITCHER -->
+        <div style="display:flex; gap:4px; background:#eceff3; padding:3px; border-radius:9px;">
+          <sc-for list="{{ plotTypeOpts }}" as="o" hint-placeholder-count="3">
+            <button style="{{ o.style }}" onClick="{{ o.onClick }}">{{ o.label }}</button>
+          </sc-for>
+        </div>
+
+        <!-- DATA INPUT -->
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">Data</div>
+          <div style="display:flex; gap:4px; border-bottom:1px solid #e5e8ec;">
+            <sc-for list="{{ inputTabs }}" as="t" hint-placeholder-count="2">
+              <button style="{{ t.style }}" onClick="{{ t.onClick }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <!-- ENTER DATA -->
+          <sc-if value="{{ isEnter }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:12.5px; color:#4b5563;">Replicates per point</span>
+                <input type="number" min="1" max="12" value="{{ replicates }}" onChange="{{ onReplicates }}" style="width:54px; height:28px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; text-align:center; font-variant-numeric:tabular-nums;">
+              </div>
+              <div style="border:1px solid #e5e8ec; border-radius:8px; overflow:auto; max-height:240px;">
+                <table style="border-collapse:collapse; font-size:12px; min-width:100%;">
+                  <thead>
+                    <tr>
+                      <th style="position:sticky; left:0; top:0; z-index:2; background:#f1f4f7; border-bottom:1px solid #e5e8ec; border-right:1px solid #e5e8ec; padding:6px 8px; font-weight:600; color:#7a838e; text-align:left; white-space:nowrap;">Group \\ X</th>
+                      <sc-for list="{{ grid.xCols }}" as="c" hint-placeholder-count="5">
+                        <th style="background:#f1f4f7; border-bottom:1px solid #e5e8ec; border-right:1px solid #eef1f4; padding:4px; min-width:74px;">
+                          <div style="display:flex; align-items:center; gap:2px;">
+                            <input value="{{ c.label }}" onChange="{{ c.onChange }}" class="gcell" style="width:100%; border:1px solid transparent; background:transparent; border-radius:4px; padding:3px 4px; font-size:12px; font-weight:600; text-align:center; color:#1f2733;">
+                            <button onClick="{{ c.onRemove }}" title="Remove X point" style="border:none; background:none; color:#b8c0c9; cursor:pointer; font-size:14px; line-height:1; padding:1px 2px;">×</button>
+                          </div>
+                        </th>
+                      </sc-for>
+                      <th style="background:#f1f4f7; border-bottom:1px solid #e5e8ec; padding:4px;">
+                        <button onClick="{{ onAddX }}" title="Add X point" style="border:1px dashed #c4cbd3; background:#fff; color:#6b7280; border-radius:5px; width:24px; height:24px; cursor:pointer; font-size:14px; line-height:1;">+</button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <sc-for list="{{ grid.rows }}" as="r" hint-placeholder-count="3">
+                      <tr>
+                        <td style="position:sticky; left:0; z-index:1; background:#fff; border-bottom:1px solid #eef1f4; border-right:1px solid #e5e8ec; padding:4px 6px; white-space:nowrap;">
+                          <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="{{ r.dotStyle }}"></span>
+                            <input value="{{ r.name }}" onChange="{{ r.onName }}" class="gcell" style="width:84px; border:1px solid transparent; background:transparent; border-radius:4px; padding:3px 4px; font-size:12px; font-weight:600;">
+                            <button onClick="{{ r.onRemove }}" title="Remove group" style="border:none; background:none; color:#b8c0c9; cursor:pointer; font-size:14px; line-height:1;">×</button>
+                          </div>
+                        </td>
+                        <sc-for list="{{ r.cells }}" as="cell">
+                          <td style="border-bottom:1px solid #eef1f4; border-right:1px solid #e5e8ec; padding:0; vertical-align:middle;">
+                            <div style="display:flex;">
+                              <sc-for list="{{ cell.reps }}" as="rep">
+                                <input value="{{ rep.v }}" onChange="{{ rep.onChange }}" class="gcell" inputmode="decimal" style="width:33px; border:none; border-right:1px solid #f0f2f5; background:transparent; padding:6px 0; font-size:12px; font-variant-numeric:tabular-nums; color:#374151; text-align:center;">
+                              </sc-for>
+                            </div>
+                          </td>
+                        </sc-for>
+                        <td style="border-bottom:1px solid #eef1f4;"></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <button onClick="{{ onAddGroup }}" style="align-self:flex-start; border:1px dashed #c4cbd3; background:#fff; color:#374151; border-radius:7px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer;">+ Add group</button>
+              <div style="font-size:11.5px; color:#9aa3ad; line-height:1.5;">One box per replicate. Each X point has <span style="color:#6b7280; font-weight:600;">{{ replicates }}</span> replicate cells — change the count above to add or remove.</div>
+            </div>
+          </sc-if>
+
+          <!-- UPLOAD -->
+          <sc-if value="{{ isUpload }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="border:1.5px dashed #c4cbd3; border-radius:10px; background:#f7f9fb; padding:26px 16px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px;">
+                <div style="width:36px; height:36px; border-radius:9px; background:#eceff3; display:flex; align-items:center; justify-content:center;">
+                  <div style="width:13px; height:13px; border:1.6px solid #8a929c; border-bottom:none; border-radius:2px 2px 0 0;"></div>
+                </div>
+                <div style="font-size:13px; font-weight:600; color:#374151;">Drop .xlsx or .csv here</div>
+                <div style="font-size:11.5px; color:#9aa3ad;">or click to browse</div>
+              </div>
+              <button style="align-self:flex-start; border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:7px; padding:7px 13px; font-size:12.5px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:7px;">
+                <span style="width:13px; height:13px; border:1.4px solid #6b7280; border-radius:2px; display:inline-block; position:relative;"></span>
+                Download template
+              </button>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- X-AXIS TYPE (line only) -->
+        <sc-if value="{{ isLine }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">X-axis type</div>
+            <div style="display:flex; gap:4px; background:#eceff3; padding:3px; border-radius:8px;">
+              <sc-for list="{{ xTypeOpts }}" as="o" hint-placeholder-count="2">
+                <button style="{{ o.style }}" onClick="{{ o.onClick }}">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ERROR DISPLAY -->
+        <sc-if value="{{ errorAsRadio }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">Error bars</div>
+            <div style="display:flex; gap:4px; background:#eceff3; padding:3px; border-radius:8px;">
+              <sc-for list="{{ errorOpts }}" as="o" hint-placeholder-count="3">
+                <button style="{{ o.style }}" onClick="{{ o.onClick }}">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isViolin }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">Inner</div>
+            <div style="display:flex; gap:4px; background:#eceff3; padding:3px; border-radius:8px;">
+              <sc-for list="{{ violinInnerOpts }}" as="o" hint-placeholder-count="3">
+                <button style="{{ o.style }}" onClick="{{ o.onClick }}">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- SHOW POINTS -->
+        <sc-if value="{{ showPointsAvail }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span style="font-size:13px;">Show individual data points</span>
+            <div style="{{ swPoints.track }}" onClick="{{ swPoints.onClick }}"><div style="{{ swPoints.knob }}"></div></div>
+          </div>
+        </sc-if>
+
+        <!-- BAR CONTROLS -->
+        <sc-if value="{{ isBar }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:12px; border-top:1px solid #eef1f4; padding-top:16px;">
+            <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">Bars</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+              <span style="font-size:13px; color:#4b5563;">Bar width / gap</span>
+              <input type="range" min="20" max="90" value="{{ barWidth }}" onChange="{{ onBarWidth }}" onInput="{{ onBarWidth }}" style="width:150px; accent-color:#2563eb;">
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+              <span style="font-size:13px;">Bar outline</span>
+              <div style="{{ swOutline.track }}" onClick="{{ swOutline.onClick }}"><div style="{{ swOutline.knob }}"></div></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- PER-SERIES STYLING -->
+        <div style="display:flex; flex-direction:column; gap:10px; border-top:1px solid #eef1f4; padding-top:16px;">
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">Series styling</div>
+          <sc-for list="{{ series }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <label style="position:relative; width:28px; height:28px; flex:0 0 auto; border:1px solid #d8dce3; border-radius:6px; overflow:hidden; cursor:pointer;">
+                <span style="{{ s.swatchStyle }}"></span>
+                <input type="color" value="{{ s.color }}" onChange="{{ s.onColor }}" style="position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;">
+              </label>
+              <input value="{{ s.name }}" onChange="{{ s.onName }}" style="flex:1; min-width:0; height:28px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:12.5px;">
+              <sc-if value="{{ isLine }}" hint-placeholder-val="{{ true }}">
+                <select value="{{ s.marker }}" onChange="{{ s.onMarker }}" style="height:28px; border:1px solid #d8dce3; border-radius:6px; padding:0 4px; font-size:12px; background:#fff; width:78px;">
+                  <option value="circle">● Circle</option>
+                  <option value="square">■ Square</option>
+                  <option value="triangle">▲ Triangle</option>
+                  <option value="diamond">◆ Diamond</option>
+                </select>
+                <select value="{{ s.line }}" onChange="{{ s.onLine }}" style="height:28px; border:1px solid #d8dce3; border-radius:6px; padding:0 4px; font-size:12px; background:#fff; width:74px;">
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                </select>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- AXIS CONTROLS -->
+        <div style="display:flex; flex-direction:column; gap:11px; border-top:1px solid #eef1f4; padding-top:16px;">
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">Axes</div>
+          <div style="display:flex; gap:8px;">
+            <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+              <span style="font-size:11.5px; color:#7a838e;">X-axis title</span>
+              <input value="{{ xTitle }}" onChange="{{ onXTitle }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px;">
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+              <span style="font-size:11.5px; color:#7a838e;">Y-axis title</span>
+              <input value="{{ yTitle }}" onChange="{{ onYTitle }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px;">
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:13px;">Y-axis auto range</span>
+            <div style="{{ swYAuto.track }}" onClick="{{ swYAuto.onClick }}"><div style="{{ swYAuto.knob }}"></div></div>
+          </div>
+          <sc-if value="{{ yManual }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; gap:8px;">
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11.5px; color:#7a838e;">Y min</span>
+                <input value="{{ yMin }}" onChange="{{ onYMin }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; font-variant-numeric:tabular-nums;">
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                <span style="font-size:11.5px; color:#7a838e;">Y max</span>
+                <input value="{{ yMax }}" onChange="{{ onYMax }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; font-variant-numeric:tabular-nums;">
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showYLog }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-size:13px;">Log scale — Y axis</span>
+              <div style="{{ swYLog.track }}" onClick="{{ swYLog.onClick }}"><div style="{{ swYLog.knob }}"></div></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showXLog }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-size:13px;">Log scale — X axis</span>
+              <div style="{{ swXLog.track }}" onClick="{{ swXLog.onClick }}"><div style="{{ swXLog.knob }}"></div></div>
+            </div>
+          </sc-if>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:13px;">Gridlines</span>
+            <div style="{{ swGrid.track }}" onClick="{{ swGrid.onClick }}"><div style="{{ swGrid.knob }}"></div></div>
+          </div>
+        </div>
+
+        <!-- TITLE + LEGEND -->
+        <div style="display:flex; flex-direction:column; gap:11px; border-top:1px solid #eef1f4; padding-top:16px;">
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#7a838e;">Title &amp; legend</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:11.5px; color:#7a838e;">Plot title (optional)</span>
+            <input value="{{ plotTitle }}" onChange="{{ onPlotTitle }}" placeholder="e.g. Cell viability over time" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:11.5px; color:#7a838e;">Legend position</span>
+            <select value="{{ legendPos }}" onChange="{{ onLegendPos }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; background:#fff;">
+              <option value="top-right">Top-right (inside)</option>
+              <option value="outside-right">Outside right</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- STATISTICS PANEL -->
+        <div style="border:1px solid #e5e8ec; border-radius:10px; background:#fff; overflow:hidden;">
+          <button onClick="{{ onToggleStats }}" style="width:100%; display:flex; align-items:center; gap:9px; padding:12px 14px; background:none; border:none; cursor:pointer; text-align:left;">
+            <span style="{{ statsChevron }}"></span>
+            <span style="font-size:13px; font-weight:700; color:#1f2733; flex:1;">Statistics</span>
+            <sc-if value="{{ showSig }}" hint-placeholder-val="{{ true }}">
+              <span style="font-size:10.5px; font-weight:700; color:#2563eb; background:#eaf1ff; padding:2px 7px; border-radius:5px;">ON</span>
+            </sc-if>
+          </button>
+          <sc-if value="{{ statsOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:4px 14px 16px; display:flex; flex-direction:column; gap:14px; border-top:1px solid #eef1f4;">
+
+              <div style="display:flex; align-items:center; justify-content:space-between; padding-top:12px;">
+                <span style="font-size:13px; font-weight:600;">Show significance annotations</span>
+                <div style="{{ swSig.track }}" onClick="{{ swSig.onClick }}"><div style="{{ swSig.knob }}"></div></div>
+              </div>
+
+              <sc-if value="{{ showSig }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                  <div style="display:flex; flex-direction:column; gap:7px;">
+                    <span style="font-size:11.5px; color:#7a838e;">Test family</span>
+                    <div style="display:flex; gap:4px; background:#eceff3; padding:3px; border-radius:8px;">
+                      <sc-for list="{{ testFamilyOpts }}" as="o" hint-placeholder-count="2">
+                        <button style="{{ o.style }}" onClick="{{ o.onClick }}">{{ o.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <span style="font-size:11.5px; color:#7a838e;">Comparisons</span>
+                    <sc-for list="{{ compModeOpts }}" as="o" hint-placeholder-count="3">
+                      <button onClick="{{ o.onClick }}" style="{{ o.rowStyle }}">
+                        <span style="{{ o.radio }}"></span>
+                        <span style="font-size:13px; color:#374151;">{{ o.label }}</span>
+                      </button>
+                    </sc-for>
+                    <sc-if value="{{ isControlMode }}" hint-placeholder-val="{{ false }}">
+                      <select value="{{ controlGroup }}" onChange="{{ onControlGroup }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; background:#fff; margin-left:24px; width:calc(100% - 24px);">
+                        <sc-for list="{{ groupOpts }}" as="g">
+                          <option value="{{ g.value }}">{{ g.label }}</option>
+                        </sc-for>
+                      </select>
+                    </sc-if>
+                    <sc-if value="{{ isManualMode }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-left:24px; font-size:11.5px; color:#9aa3ad; line-height:1.5; background:#f7f9fb; border:1px solid #eef1f4; border-radius:7px; padding:8px 10px;">Click two series in the preview to add a bracket.</div>
+                    </sc-if>
+                  </div>
+
+                  <div style="display:flex; flex-direction:column; gap:5px;">
+                    <span style="font-size:11.5px; color:#7a838e;">Multiple-comparison correction</span>
+                    <select value="{{ correction }}" onChange="{{ onCorrection }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; background:#fff;">
+                      <option value="holm">Holm–Šídák (default)</option>
+                      <option value="bonferroni">Bonferroni</option>
+                      <option value="none">None</option>
+                    </select>
+                  </div>
+
+                  <div style="display:flex; flex-direction:column; gap:7px;">
+                    <span style="font-size:11.5px; color:#7a838e;">Significance display</span>
+                    <div style="display:flex; gap:4px; background:#eceff3; padding:3px; border-radius:8px;">
+                      <sc-for list="{{ sigDisplayOpts }}" as="o" hint-placeholder-count="3">
+                        <button style="{{ o.style }}" onClick="{{ o.onClick }}">{{ o.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <sc-if value="{{ isLine }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                      <span style="font-size:13px;">Compare groups at each X point</span>
+                      <div style="{{ swEachX.track }}" onClick="{{ swEachX.onClick }}"><div style="{{ swEachX.knob }}"></div></div>
+                    </div>
+                  </sc-if>
+
+                  <div title="Advanced post-hoc (Tukey, Dunnett, two-way ANOVA) is a later add-on." style="display:flex; align-items:center; gap:9px; padding:9px 10px; border:1px dashed #dde2e8; border-radius:7px; background:#f7f9fb; opacity:0.65; cursor:not-allowed;">
+                    <span style="width:14px; height:14px; border:1.5px solid #c4cbd3; border-radius:4px; flex:0 0 auto;"></span>
+                    <span style="font-size:12.5px; color:#9aa3ad;">Advanced (ANOVA post-hoc)</span>
+                    <span style="margin-left:auto; font-size:10px; font-weight:700; color:#aeb6bf; background:#eceff3; padding:2px 6px; border-radius:4px;">SOON</span>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="flex:1; min-width:0; display:flex; flex-direction:column; background:#f4f6f8;">
+      <div style="flex:1; padding:28px; overflow:auto; display:flex; align-items:center; justify-content:center;">
+        <div style="background:#ffffff; border:1px solid #e5e8ec; border-radius:12px; box-shadow:0 1px 3px rgba(20,30,45,0.05); padding:22px; width:100%; max-width:620px;">
+          {{ plotSvg }}
+        </div>
+      </div>
+
+      <!-- EXPORT BAR -->
+      <div style="border-top:1px solid #e5e8ec; background:#fff; padding:12px 20px; display:flex; align-items:center; gap:16px;">
+        <div style="display:flex; align-items:center; gap:7px;">
+          <span style="font-size:11.5px; color:#7a838e;">Size</span>
+          <input value="{{ figW }}" onChange="{{ onFigW }}" style="width:50px; height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 6px; font-size:12.5px; text-align:center; font-variant-numeric:tabular-nums;">
+          <span style="font-size:12px; color:#9aa3ad;">×</span>
+          <input value="{{ figH }}" onChange="{{ onFigH }}" style="width:50px; height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 6px; font-size:12.5px; text-align:center; font-variant-numeric:tabular-nums;">
+          <span style="font-size:11.5px; color:#7a838e;">mm</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:7px;">
+          <span style="font-size:11.5px; color:#7a838e;">PNG</span>
+          <select value="{{ dpi }}" onChange="{{ onDpi }}" style="height:30px; border:1px solid #d8dce3; border-radius:6px; padding:0 6px; font-size:12.5px; background:#fff;">
+            <option value="150">150 DPI</option>
+            <option value="300">300 DPI</option>
+            <option value="600">600 DPI</option>
+          </select>
+        </div>
+        <div style="flex:1;"></div>
+        <button style="border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:7px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer;">Export SVG</button>
+        <button style="border:1px solid #1f2733; background:#1f2733; color:#fff; border-radius:7px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer;">Export PNG</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    plotType: 'line', inputMode: 'enter', xAxisType: 'numeric',
+    errorType: 'sem', violinInner: 'box',
+    showPoints: false, barOutline: true, barWidth: 64,
+    xTitle: 'Time (h)', yTitle: 'Response (a.u.)',
+    yMin: '0', yMax: '100', yAuto: true, xLog: false, yLog: false, gridlines: false,
+    plotTitle: '', legendPos: 'top-right',
+    figW: '120', figH: '90', dpi: '300',
+    groups: [
+      { name: 'Control', color: '#0072B2', marker: 'circle', line: 'solid' },
+      { name: 'Drug A', color: '#E69F00', marker: 'square', line: 'solid' },
+      { name: 'Drug B', color: '#009E73', marker: 'triangle', line: 'dashed' },
+    ],
+    xLabels: ['0', '24', '48', '72', '96'],
+    cells: [
+      [['18', '20', '22'], ['32', '34', '36'], ['45', '47', '49'], ['52', '54', '56'], ['56', '58', '60']],
+      [['20', '22', '24'], ['27', '29', '31'], ['35', '37', '39'], ['40', '42', '44'], ['43', '45', '47']],
+      [['19', '21', '23'], ['44', '46', '48'], ['64', '66', '68'], ['76', '78', '80'], ['84', '86', '88']],
+    ],
+    replicates: 3,
+    statsOpen: true, showSig: true, testFamily: 'parametric',
+    compMode: 'allpairs', controlGroup: 0, correction: 'holm',
+    sigDisplay: 'asterisks', compareAtEachX: false,
+  };
+
+  PALETTE = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#D55E00', '#56B4E9', '#999999', '#000000'];
+
+  set(patch) { this.setState(patch); }
+
+  setPlot(k) {
+    this.setState(s => ({
+      plotType: k,
+      showPoints: k === 'bar' ? true : (k === 'line' ? false : s.showPoints),
+      xAxisType: k === 'line' ? s.xAxisType : 'categorical',
+    }));
+  }
+
+  // ---- grid handlers ----
+  setCell(gi, xi, ri, v) { this.setState(s => { const c = s.cells.map(r => r.map(cell => cell.slice())); c[gi][xi][ri] = v; return { cells: c }; }); }
+  setReplicates(n) {
+    n = Math.max(1, Math.min(12, n || 1));
+    this.setState(s => ({
+      replicates: n,
+      cells: s.cells.map(row => row.map(cell => { const a = cell.slice(0, n); while (a.length < n) a.push(''); return a; })),
+    }));
+  }
+  cellVals(cell) {
+    const raw = Array.isArray(cell) ? cell : String(cell).split(/[,\s]+/);
+    return raw.map(v => String(v).trim()).filter(v => v !== '').map(Number).filter(x => !isNaN(x));
+  }
+  setXLabel(xi, v) { this.setState(s => { const x = s.xLabels.slice(); x[xi] = v; return { xLabels: x }; }); }
+  setGroupName(gi, v) { this.setState(s => { const g = s.groups.map(o => ({ ...o })); g[gi].name = v; return { groups: g }; }); }
+  setColor(gi, v) { this.setState(s => { const g = s.groups.map(o => ({ ...o })); g[gi].color = v; return { groups: g }; }); }
+  setMarker(gi, v) { this.setState(s => { const g = s.groups.map(o => ({ ...o })); g[gi].marker = v; return { groups: g }; }); }
+  setLine(gi, v) { this.setState(s => { const g = s.groups.map(o => ({ ...o })); g[gi].line = v; return { groups: g }; }); }
+  addGroup() {
+    this.setState(s => {
+      const idx = s.groups.length;
+      const row = s.xLabels.map(() => Array(s.replicates).fill(''));
+      return {
+        groups: [...s.groups, { name: 'Group ' + (idx + 1), color: this.PALETTE[idx % this.PALETTE.length], marker: 'circle', line: 'solid' }],
+        cells: [...s.cells, row],
+      };
+    });
+  }
+  removeGroup(gi) { this.setState(s => s.groups.length <= 1 ? {} : ({ groups: s.groups.filter((_, i) => i !== gi), cells: s.cells.filter((_, i) => i !== gi) })); }
+  addX() { this.setState(s => ({ xLabels: [...s.xLabels, String(s.xLabels.length)], cells: s.cells.map(r => [...r, Array(s.replicates).fill('')]) })); }
+  removeX(xi) { this.setState(s => s.xLabels.length <= 1 ? {} : ({ xLabels: s.xLabels.filter((_, i) => i !== xi), cells: s.cells.map(r => r.filter((_, i) => i !== xi)) })); }
+
+  // ---- numeric helpers ----
+  cellStats(cell) {
+    const a = this.cellVals(cell);
+    if (!a.length) return { m: 0, e: 0, n: 0, sd: 0 };
+    const m = a.reduce((s, x) => s + x, 0) / a.length;
+    const sd = a.length > 1 ? Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)) : 0;
+    const sem = sd / Math.sqrt(a.length);
+    const e = this.state.errorType === 'sd' ? sd : this.state.errorType === 'ci' ? 1.96 * sem : sem;
+    return { m, e, n: a.length, sd };
+  }
+
+  renderVals() {
+    const S = this.state;
+    const E = React.createElement;
+
+    const isLine = S.plotType === 'line', isBar = S.plotType === 'bar', isViolin = S.plotType === 'violin';
+
+    // segmented button style
+    const mkSeg = (active) => ({
+      flex: 1, height: '30px', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600,
+      cursor: 'pointer', background: active ? '#ffffff' : 'transparent', color: active ? '#111827' : '#6b7280',
+      boxShadow: active ? '0 1px 2px rgba(20,30,45,0.14)' : 'none', fontFamily: 'inherit', transition: 'all .12s',
+    });
+    const seg = (arr, cur, setter) => arr.map(o => ({ label: o.label, style: mkSeg(o.key === cur), onClick: () => setter(o.key) }));
+
+    // tab style
+    const mkTab = (active) => ({
+      border: 'none', background: 'none', padding: '8px 4px', marginBottom: '-1px', fontSize: '13px', fontWeight: 600,
+      cursor: 'pointer', color: active ? '#1f2733' : '#9aa3ad', borderBottom: active ? '2px solid #1f2733' : '2px solid transparent',
+    });
+
+    // toggle switch
+    const sw = (on, toggle) => ({
+      on, onClick: toggle,
+      track: { width: '34px', height: '20px', borderRadius: '999px', background: on ? '#2563eb' : '#cbd2da', position: 'relative', cursor: 'pointer', transition: 'background .15s', flex: '0 0 auto' },
+      knob: { position: 'absolute', top: '2px', left: on ? '16px' : '2px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.25)', transition: 'left .15s' },
+    });
+
+    const f = (key, num) => (e) => this.set({ [key]: num ? +e.target.value : e.target.value });
+
+    // ---- grid ----
+    const grid = {
+      xCols: S.xLabels.map((x, xi) => ({ label: x, onChange: e => this.setXLabel(xi, e.target.value), onRemove: () => this.removeX(xi) })),
+      rows: S.groups.map((g, gi) => ({
+        name: g.name, color: g.color,
+        dotStyle: { width: '11px', height: '11px', borderRadius: '50%', background: g.color, flex: '0 0 auto', display: 'inline-block' },
+        onName: e => this.setGroupName(gi, e.target.value),
+        onRemove: () => this.removeGroup(gi),
+        cells: S.cells[gi].map((arr, xi) => ({ reps: arr.map((v, ri) => ({ v, onChange: e => this.setCell(gi, xi, ri, e.target.value) })) })),
+      })),
+    };
+
+    // ---- series styling ----
+    const series = S.groups.map((g, gi) => ({
+      name: g.name, color: g.color, marker: g.marker, line: g.line,
+      swatchStyle: { position: 'absolute', inset: 0, background: g.color, display: 'block' },
+      onColor: e => this.setColor(gi, e.target.value),
+      onName: e => this.setGroupName(gi, e.target.value),
+      onMarker: e => this.setMarker(gi, e.target.value),
+      onLine: e => this.setLine(gi, e.target.value),
+    }));
+
+    // ---- radio rows (comparison mode) ----
+    const mkRadioRow = (active) => ({
+      display: 'flex', alignItems: 'center', gap: '9px', padding: '2px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
+    });
+    const mkRadio = (active) => ({
+      width: '15px', height: '15px', borderRadius: '50%', flex: '0 0 auto',
+      border: active ? '5px solid #2563eb' : '1.5px solid #c4cbd3', background: '#fff', transition: 'all .12s', boxSizing: 'border-box',
+    });
+    const compModeOpts = [
+      { key: 'allpairs', label: 'All pairs' },
+      { key: 'control', label: 'vs. control' },
+      { key: 'manual', label: 'Manual (click in preview)' },
+    ].map(o => ({ label: o.label, rowStyle: mkRadioRow(), radio: mkRadio(o.key === S.compMode), onClick: () => this.set({ compMode: o.key }) }));
+
+    // ---- statistics chevron ----
+    const statsChevron = {
+      width: '8px', height: '8px', borderRight: '1.5px solid #6b7280', borderBottom: '1.5px solid #6b7280',
+      transform: S.statsOpen ? 'rotate(45deg)' : 'rotate(-45deg)', transition: 'transform .15s', flex: '0 0 auto', marginLeft: '2px',
+    };
+
+    return {
+      // flags
+      isLine, isBar, isViolin,
+      isEnter: S.inputMode === 'enter', isUpload: S.inputMode === 'upload',
+      errorAsRadio: isLine || isBar,
+      showPointsAvail: isBar || isViolin,
+      yManual: !S.yAuto,
+      showYLog: isLine,
+      showXLog: isLine && S.xAxisType === 'numeric',
+      isControlMode: S.compMode === 'control',
+      isManualMode: S.compMode === 'manual',
+      statsOpen: S.statsOpen, showSig: S.showSig,
+
+      // segmented option arrays
+      plotTypeOpts: seg([{ key: 'line', label: 'Line' }, { key: 'bar', label: 'Bar' }, { key: 'violin', label: 'Violin' }], S.plotType, k => this.setPlot(k)),
+      inputTabs: [{ key: 'enter', label: 'Enter data' }, { key: 'upload', label: 'Upload file' }].map(o => ({ label: o.label, style: mkTab(o.key === S.inputMode), onClick: () => this.set({ inputMode: o.key }) })),
+      xTypeOpts: seg([{ key: 'numeric', label: 'Numeric' }, { key: 'categorical', label: 'Categorical' }], S.xAxisType, k => this.set({ xAxisType: k })),
+      errorOpts: seg([{ key: 'sd', label: 'SD' }, { key: 'sem', label: 'SEM' }, { key: 'ci', label: '95% CI' }], S.errorType, k => this.set({ errorType: k })),
+      violinInnerOpts: seg([{ key: 'box', label: 'Box' }, { key: 'meansd', label: 'Mean ± SD' }, { key: 'none', label: 'None' }], S.violinInner, k => this.set({ violinInner: k })),
+      testFamilyOpts: seg([{ key: 'parametric', label: 't-test' }, { key: 'nonparam', label: 'Mann–Whitney' }], S.testFamily, k => this.set({ testFamily: k })),
+      compModeOpts,
+      sigDisplayOpts: seg([{ key: 'asterisks', label: 'Asterisks' }, { key: 'pvalue', label: 'Exact p' }, { key: 'ns', label: 'Show "ns"' }], S.sigDisplay, k => this.set({ sigDisplay: k })),
+      groupOpts: S.groups.map((g, i) => ({ value: i, label: g.name })),
+
+      // toggles
+      swPoints: sw(S.showPoints, () => this.set({ showPoints: !S.showPoints })),
+      swOutline: sw(S.barOutline, () => this.set({ barOutline: !S.barOutline })),
+      swYAuto: sw(S.yAuto, () => this.set({ yAuto: !S.yAuto })),
+      swYLog: sw(S.yLog, () => this.set({ yLog: !S.yLog })),
+      swXLog: sw(S.xLog, () => this.set({ xLog: !S.xLog })),
+      swGrid: sw(S.gridlines, () => this.set({ gridlines: !S.gridlines })),
+      swSig: sw(S.showSig, () => this.set({ showSig: !S.showSig })),
+      swEachX: sw(S.compareAtEachX, () => this.set({ compareAtEachX: !S.compareAtEachX })),
+
+      // grid + series
+      grid, series,
+      replicates: S.replicates,
+      onReplicates: (e) => this.setReplicates(+e.target.value),
+      onAddGroup: () => this.addGroup(),
+      onAddX: () => this.addX(),
+
+      // bar
+      barWidth: S.barWidth, onBarWidth: f('barWidth', true),
+
+      // axes
+      xTitle: S.xTitle, yTitle: S.yTitle, yMin: S.yMin, yMax: S.yMax,
+      onXTitle: f('xTitle'), onYTitle: f('yTitle'), onYMin: f('yMin'), onYMax: f('yMax'),
+      plotTitle: S.plotTitle, onPlotTitle: f('plotTitle'),
+      legendPos: S.legendPos, onLegendPos: f('legendPos'),
+
+      // export
+      figW: S.figW, figH: S.figH, dpi: S.dpi,
+      onFigW: f('figW'), onFigH: f('figH'), onDpi: f('dpi'),
+
+      // stats
+      onToggleStats: () => this.set({ statsOpen: !S.statsOpen }),
+      statsChevron,
+      controlGroup: S.controlGroup, onControlGroup: f('controlGroup', true),
+      correction: S.correction, onCorrection: f('correction'),
+
+      // the plot
+      plotSvg: this.buildPlot(),
+    };
+  }
+
+  buildPlot() {
+    const E = React.createElement;
+    const S = this.state;
+    const isLine = S.plotType === 'line', isBar = S.plotType === 'bar', isViolin = S.plotType === 'violin';
+    const groups = S.groups;
+    const outside = S.legendPos === 'outside-right';
+
+    const PLOT = 416;
+    const X0 = 96, Y0 = 46;
+    const X1 = X0 + PLOT;
+    const Y1 = Y0 + PLOT;
+    const W = PLOT, H = PLOT;
+    const SVGH = Y1 + 60;
+    const SVGW = outside ? X1 + 172 : X1 + 44;
+    const ink = '#1f2733';
+    const AF = 'Helvetica, Arial, sans-serif';
+
+    // --- domain ---
+    let dataMax = 0;
+    groups.forEach((g, gi) => {
+      S.xLabels.forEach((_, xi) => { const st = this.cellStats(S.cells[gi][xi]); dataMax = Math.max(dataMax, st.m + st.e); });
+    });
+    let bottom = 0, top;
+    if (S.yAuto) { top = Math.max(20, Math.ceil((dataMax * 1.12) / 20) * 20); }
+    else { bottom = parseFloat(S.yMin) || 0; top = parseFloat(S.yMax) || Math.max(20, Math.ceil(dataMax / 20) * 20); }
+    if (top <= bottom) top = bottom + 20;
+    const yToPx = v => Y1 - (v - bottom) / (top - bottom) * H;
+
+    // representative value per group (last column) for bar/violin
+    const lastStats = groups.map((g, gi) => this.cellStats(S.cells[gi][S.xLabels.length - 1]));
+
+    const xLine = (i, n) => X0 + (n <= 1 ? W / 2 : W * (i / (n - 1)));
+    const xCat = (i, n) => X0 + W * ((i + 0.5) / n);
+
+    const children = [];
+
+    // --- title ---
+    if (S.plotTitle) children.push(E('text', { key: 'title', x: (X0 + X1) / 2, y: 28, textAnchor: 'middle', fontSize: 16, fontWeight: 700, fontFamily: AF, fill: ink }, S.plotTitle));
+
+    // --- gridlines (optional) ---
+    const nTicks = 5;
+    const tickVals = [];
+    for (let i = 0; i <= nTicks; i++) tickVals.push(bottom + (top - bottom) * i / nTicks);
+    if (S.gridlines) {
+      tickVals.forEach((v, i) => children.push(E('line', { key: 'grid' + i, x1: X0, y1: yToPx(v), x2: X1, y2: yToPx(v), stroke: '#eceff3', strokeWidth: 1 })));
+    }
+
+    // --- axes (left + bottom only, Prism style) ---
+    children.push(E('line', { key: 'ay', x1: X0, y1: Y0 - 4, x2: X0, y2: Y1, stroke: ink, strokeWidth: 1.6 }));
+    children.push(E('line', { key: 'ax', x1: X0, y1: Y1, x2: X1 + 4, y2: Y1, stroke: ink, strokeWidth: 1.6 }));
+
+    // y ticks (outward) + labels
+    tickVals.forEach((v, i) => {
+      children.push(E('line', { key: 'yt' + i, x1: X0 - 6, y1: yToPx(v), x2: X0, y2: yToPx(v), stroke: ink, strokeWidth: 1.6 }));
+      children.push(E('text', { key: 'ytl' + i, x: X0 - 10, y: yToPx(v) + 4, textAnchor: 'end', fontSize: 12, fontFamily: AF, fill: ink }, Math.round(v)));
+    });
+
+    // x ticks + labels
+    const nx = isLine ? S.xLabels.length : groups.length;
+    const xLabelsArr = isLine ? S.xLabels : groups.map(g => g.name);
+    const xpos = (i) => isLine ? xLine(i, nx) : xCat(i, nx);
+    xLabelsArr.forEach((lab, i) => {
+      const cx = xpos(i);
+      children.push(E('line', { key: 'xt' + i, x1: cx, y1: Y1, x2: cx, y2: Y1 + 6, stroke: ink, strokeWidth: 1.6 }));
+      children.push(E('text', { key: 'xtl' + i, x: cx, y: Y1 + 20, textAnchor: 'middle', fontSize: 12, fontFamily: AF, fill: ink }, lab));
+    });
+
+    // axis titles
+    children.push(E('text', { key: 'xtitle', x: (X0 + X1) / 2, y: Y1 + 44, textAnchor: 'middle', fontSize: 13.5, fontWeight: 600, fontFamily: AF, fill: ink }, S.xTitle));
+    children.push(E('text', { key: 'ytitle', x: 22, y: (Y0 + Y1) / 2, textAnchor: 'middle', fontSize: 13.5, fontWeight: 600, fontFamily: AF, fill: ink, transform: `rotate(-90 22 ${(Y0 + Y1) / 2})` }, S.yTitle));
+
+    // --- marker helper ---
+    const marker = (cx, cy, shape, color, sz, key) => {
+      if (shape === 'square') return E('rect', { key, x: cx - sz, y: cy - sz, width: sz * 2, height: sz * 2, fill: color, stroke: '#fff', strokeWidth: 0.8 });
+      if (shape === 'triangle') return E('polygon', { key, points: `${cx},${cy - sz * 1.15} ${cx + sz * 1.1},${cy + sz} ${cx - sz * 1.1},${cy + sz}`, fill: color, stroke: '#fff', strokeWidth: 0.8 });
+      if (shape === 'diamond') return E('polygon', { key, points: `${cx},${cy - sz * 1.25} ${cx + sz * 1.1},${cy} ${cx},${cy + sz * 1.25} ${cx - sz * 1.1},${cy}`, fill: color, stroke: '#fff', strokeWidth: 0.8 });
+      return E('circle', { key, cx, cy, r: sz, fill: color, stroke: '#fff', strokeWidth: 0.8 });
+    };
+    const ebar = (cx, m, e, color, key) => E('g', { key, stroke: color, strokeWidth: 1.5 },
+      E('line', { x1: cx, y1: yToPx(m + e), x2: cx, y2: yToPx(m - e) }),
+      E('line', { x1: cx - 3.5, y1: yToPx(m + e), x2: cx + 3.5, y2: yToPx(m + e) }),
+      E('line', { x1: cx - 3.5, y1: yToPx(m - e), x2: cx + 3.5, y2: yToPx(m - e) }),
+    );
+    const jitter = (k) => (Math.sin(k * 12.9898) * 43758.5453 % 1 + 1) % 1;
+
+    // ===== LINE =====
+    if (isLine) {
+      groups.forEach((g, gi) => {
+        const pts = S.xLabels.map((_, xi) => { const st = this.cellStats(S.cells[gi][xi]); return { cx: xLine(xi, nx), m: st.m, e: st.e }; });
+        const d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.cx + ' ' + yToPx(p.m)).join(' ');
+        children.push(E('path', { key: 'ln' + gi, d, fill: 'none', stroke: g.color, strokeWidth: 2, strokeDasharray: g.line === 'dashed' ? '6 4' : 'none', strokeLinejoin: 'round' }));
+        pts.forEach((p, xi) => children.push(ebar(p.cx, p.m, p.e, g.color, 'le' + gi + '_' + xi)));
+        pts.forEach((p, xi) => children.push(marker(p.cx, yToPx(p.m), g.marker, g.color, 4, 'lm' + gi + '_' + xi)));
+      });
+    }
+
+    // ===== BAR =====
+    if (isBar) {
+      const slot = W / nx;
+      const bw = slot * (S.barWidth / 100);
+      groups.forEach((g, gi) => {
+        const st = lastStats[gi];
+        const cx = xCat(gi, nx);
+        const x = cx - bw / 2;
+        const yTop = yToPx(st.m);
+        children.push(E('rect', { key: 'bar' + gi, x, y: yTop, width: bw, height: Y1 - yTop, fill: g.color, fillOpacity: 0.92, stroke: S.barOutline ? '#1f2733' : 'none', strokeWidth: S.barOutline ? 1.3 : 0 }));
+        children.push(ebar(cx, st.m, st.e, '#1f2733', 'be' + gi));
+        if (S.showPoints) {
+          const a = this.cellVals(S.cells[gi][S.xLabels.length - 1]);
+          a.forEach((v, k) => children.push(E('circle', { key: 'bp' + gi + '_' + k, cx: cx + (jitter(gi * 7 + k) - 0.5) * bw * 0.55, cy: yToPx(v), r: 2.2, fill: '#1f2733', fillOpacity: 0.55 })));
+        }
+      });
+      // significance brackets (auto-stacked)
+      if (S.showSig && groups.length >= 2) {
+        const brk = (i, j, label, lvl, key) => {
+          const xi = xCat(i, nx), xj = xCat(j, nx), cap = 6;
+          const yb = Y0 - 2 + lvl * 26 + 8;
+          const isNs = label === 'ns';
+          return E('g', { key },
+            E('line', { x1: xi, y1: yb, x2: xj, y2: yb, stroke: ink, strokeWidth: 1.2 }),
+            E('line', { x1: xi, y1: yb, x2: xi, y2: yb + cap, stroke: ink, strokeWidth: 1.2 }),
+            E('line', { x1: xj, y1: yb, x2: xj, y2: yb + cap, stroke: ink, strokeWidth: 1.2 }),
+            E('text', { x: (xi + xj) / 2, y: yb - (isNs ? 3 : 1), textAnchor: 'middle', fontSize: isNs ? 11 : 15, fontStyle: isNs ? 'italic' : 'normal', fontWeight: isNs ? 400 : 700, fontFamily: AF, fill: isNs ? '#6b7280' : ink }, label),
+          );
+        };
+        // shorter comparison lower, wider comparison higher so they never overlap
+        children.push(brk(0, 1, 'ns', 0, 'brk1'));
+        if (groups.length >= 3) children.push(brk(0, 2, '**', 1, 'brk2'));
+      }
+    }
+
+    // ===== VIOLIN =====
+    if (isViolin) {
+      const slot = W / nx;
+      const halfW = Math.min(34, slot * 0.34);
+      groups.forEach((g, gi) => {
+        const st = lastStats[gi];
+        const center = st.m, spread = Math.max(11, (st.sd || 4) * 2.4);
+        const cx = xCat(gi, nx);
+        const N = 28, pts = [];
+        for (let k = 0; k <= N; k++) { const v = bottom + (top - bottom) * k / N; const hw = halfW * Math.exp(-((v - center) ** 2) / (2 * spread * spread)); pts.push([v, hw]); }
+        let d = '';
+        pts.forEach((p, k) => { d += (k === 0 ? 'M' : 'L') + (cx - p[1]) + ' ' + yToPx(p[0]) + ' '; });
+        for (let k = pts.length - 1; k >= 0; k--) { d += 'L' + (cx + pts[k][1]) + ' ' + yToPx(pts[k][0]) + ' '; }
+        d += 'Z';
+        children.push(E('path', { key: 'vio' + gi, d, fill: g.color, fillOpacity: 0.32, stroke: g.color, strokeWidth: 1.6 }));
+        if (S.showPoints) {
+          const a = this.cellVals(S.cells[gi][S.xLabels.length - 1]);
+          a.forEach((v, k) => children.push(E('circle', { key: 'vp' + gi + '_' + k, cx: cx + (jitter(gi * 5 + k) - 0.5) * halfW * 0.7, cy: yToPx(v), r: 2.2, fill: g.color, fillOpacity: 0.85 })));
+        }
+        // inner
+        if (S.violinInner === 'box') {
+          const q = Math.max(5, st.sd * 0.9 || 7);
+          children.push(E('rect', { key: 'vb' + gi, x: cx - 6, y: yToPx(center + q), width: 12, height: yToPx(center - q) - yToPx(center + q), fill: '#fff', stroke: ink, strokeWidth: 1.3 }));
+          children.push(E('line', { key: 'vm' + gi, x1: cx - 6, y1: yToPx(center), x2: cx + 6, y2: yToPx(center), stroke: ink, strokeWidth: 1.6 }));
+        } else if (S.violinInner === 'meansd') {
+          const sd = st.sd || 8;
+          children.push(E('line', { key: 'vl' + gi, x1: cx, y1: yToPx(center + sd), x2: cx, y2: yToPx(center - sd), stroke: ink, strokeWidth: 1.5 }));
+          children.push(E('circle', { key: 'vc' + gi, cx, cy: yToPx(center), r: 3.5, fill: ink }));
+        }
+      });
+    }
+
+    // ===== LEGEND =====
+    if (S.legendPos !== 'none') {
+      const lx = outside ? X1 + 22 : X1 - 132;
+      const ly0 = Y0 + 6;
+      groups.forEach((g, gi) => {
+        const y = ly0 + gi * 20;
+        if (isLine) {
+          children.push(E('line', { key: 'lgl' + gi, x1: lx, y1: y, x2: lx + 22, y2: y, stroke: g.color, strokeWidth: 2, strokeDasharray: g.line === 'dashed' ? '5 4' : 'none' }));
+          children.push(marker(lx + 11, y, g.marker, g.color, 3.5, 'lgm' + gi));
+        } else {
+          children.push(E('rect', { key: 'lgr' + gi, x: lx + 2, y: y - 6, width: 16, height: 12, fill: g.color, fillOpacity: isViolin ? 0.5 : 0.92, stroke: g.color, strokeWidth: 1 }));
+        }
+        children.push(E('text', { key: 'lgt' + gi, x: lx + 28, y: y + 4, textAnchor: 'start', fontSize: 12.5, fontFamily: AF, fill: ink }, g.name));
+      });
+    }
+
+    return E('svg', { viewBox: `0 0 ${SVGW} ${SVGH}`, width: '100%', style: { display: 'block', maxHeight: '74vh' }, fontFamily: AF }, children);
+  }
+}
+</script>
+</body>
+</html>
