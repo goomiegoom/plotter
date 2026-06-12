@@ -8,6 +8,8 @@
 <body>
 <x-dc>
 <helmet>
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="./engine.js"></script>
 <style>
   html, body { margin: 0; padding: 0; }
   * { box-sizing: border-box; }
@@ -117,17 +119,36 @@
           <!-- UPLOAD -->
           <sc-if value="{{ isUpload }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex; flex-direction:column; gap:10px;">
-              <div style="border:1.5px dashed #c4cbd3; border-radius:10px; background:#f7f9fb; padding:26px 16px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px;">
+              <label style="border:1.5px dashed #c4cbd3; border-radius:10px; background:#f7f9fb; padding:26px 16px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer;">
                 <div style="width:36px; height:36px; border-radius:9px; background:#eceff3; display:flex; align-items:center; justify-content:center;">
                   <div style="width:13px; height:13px; border:1.6px solid #8a929c; border-bottom:none; border-radius:2px 2px 0 0;"></div>
                 </div>
-                <div style="font-size:13px; font-weight:600; color:#374151;">Drop .xlsx or .csv here</div>
-                <div style="font-size:11.5px; color:#9aa3ad;">or click to browse</div>
+                <div style="font-size:13px; font-weight:600; color:#374151;">Choose .xlsx or .csv</div>
+                <div style="font-size:11.5px; color:#9aa3ad;">click to browse</div>
+                <input type="file" accept=".xlsx,.xls,.csv" onChange="{{ onFile }}" style="display:none;">
+              </label>
+
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <span style="font-size:11.5px; color:#7a838e;">Layout</span>
+                <div style="display:flex; gap:4px; background:#eceff3; padding:3px; border-radius:8px;">
+                  <sc-for list="{{ uploadShapeOpts }}" as="o" hint-placeholder-count="3">
+                    <button style="{{ o.style }}" onClick="{{ o.onClick }}">{{ o.label }}</button>
+                  </sc-for>
+                </div>
               </div>
-              <button style="align-self:flex-start; border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:7px; padding:7px 13px; font-size:12.5px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:7px;">
-                <span style="width:13px; height:13px; border:1.4px solid #6b7280; border-radius:2px; display:inline-block; position:relative;"></span>
-                Download template
-              </button>
+
+              <sc-if value="{{ uploadError }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px; color:#b00020; background:#fdecee; border:1px solid #f5c2c7; border-radius:7px; padding:8px 10px; line-height:1.45;">{{ uploadError }}</div>
+              </sc-if>
+              <sc-if value="{{ uploadInfo }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px; color:#166534; background:#e9f7ef; border:1px solid #b7e3c7; border-radius:7px; padding:8px 10px; line-height:1.45;">{{ uploadInfo }}</div>
+              </sc-if>
+
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11.5px; color:#7a838e;">Template:</span>
+                <button onClick="{{ onTemplateLong }}" style="border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:7px; padding:6px 11px; font-size:12px; font-weight:600; cursor:pointer;">Long</button>
+                <button onClick="{{ onTemplateWide }}" style="border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:7px; padding:6px 11px; font-size:12px; font-weight:600; cursor:pointer;">Wide</button>
+              </div>
             </div>
           </sc-if>
         </div>
@@ -323,7 +344,19 @@
                       </select>
                     </sc-if>
                     <sc-if value="{{ isManualMode }}" hint-placeholder-val="{{ false }}">
-                      <div style="margin-left:24px; font-size:11.5px; color:#9aa3ad; line-height:1.5; background:#f7f9fb; border:1px solid #eef1f4; border-radius:7px; padding:8px 10px;">Click two series in the preview to add a bracket.</div>
+                      <div style="margin-left:24px; display:flex; flex-direction:column; gap:6px; background:#f7f9fb; border:1px solid #eef1f4; border-radius:7px; padding:8px 10px;">
+                        <div style="font-size:11.5px; color:#9aa3ad; line-height:1.5;">{{ manualHint }}</div>
+                        <sc-if value="{{ hasManualPairs }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex; flex-direction:column; gap:4px;">
+                            <sc-for list="{{ manualPairRows }}" as="p" hint-placeholder-count="1">
+                              <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#374151;">
+                                <span style="flex:1;">{{ p.label }}</span>
+                                <button onClick="{{ p.onRemove }}" style="border:none; background:none; color:#b8c0c9; cursor:pointer; font-size:14px; line-height:1;">×</button>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
                     </sc-if>
                   </div>
 
@@ -368,7 +401,14 @@
 
     <!-- RIGHT COLUMN -->
     <div style="flex:1; min-width:0; display:flex; flex-direction:column; background:#f4f6f8;">
-      <div style="flex:1; padding:28px; overflow:auto; display:flex; align-items:center; justify-content:center;">
+      <div style="flex:1; padding:28px; overflow:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;">
+        <sc-if value="{{ hasPlotWarnings }}" hint-placeholder-val="{{ false }}">
+          <div style="width:100%; max-width:620px; display:flex; flex-direction:column; gap:6px;">
+            <sc-for list="{{ plotWarnings }}" as="w" hint-placeholder-count="1">
+              <div style="font-size:12px; color:#92580a; background:#fff7e6; border:1px solid #f5d9a8; border-radius:7px; padding:8px 10px; line-height:1.45;">{{ w }}</div>
+            </sc-for>
+          </div>
+        </sc-if>
         <div style="background:#ffffff; border:1px solid #e5e8ec; border-radius:12px; box-shadow:0 1px 3px rgba(20,30,45,0.05); padding:22px; width:100%; max-width:620px;">
           {{ plotSvg }}
         </div>
@@ -392,8 +432,8 @@
           </select>
         </div>
         <div style="flex:1;"></div>
-        <button style="border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:7px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer;">Export SVG</button>
-        <button style="border:1px solid #1f2733; background:#1f2733; color:#fff; border-radius:7px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer;">Export PNG</button>
+        <button onClick="{{ onExportSvg }}" style="border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:7px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer;">Export SVG</button>
+        <button onClick="{{ onExportPng }}" style="border:1px solid #1f2733; background:#1f2733; color:#fff; border-radius:7px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer;">Export PNG</button>
       </div>
     </div>
 
@@ -425,11 +465,24 @@ class Component extends DCLogic {
     statsOpen: true, showSig: true, testFamily: 'parametric',
     compMode: 'allpairs', controlGroup: 0, correction: 'holm',
     sigDisplay: 'asterisks', compareAtEachX: false,
+    // upload + interaction
+    uploadShape: 'auto', uploadError: '', uploadInfo: '',
+    manualPairs: [], _pendingSel: null,
   };
 
   PALETTE = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#D55E00', '#56B4E9', '#999999', '#000000'];
 
   set(patch) { this.setState(patch); }
+
+  // ---- engine readiness: re-render once the bundled engine.js has loaded ----
+  componentDidMount() { this._mounted = true; this._pollEngine(); }
+  componentWillUnmount() { this._mounted = false; clearTimeout(this._pollT); }
+  engine() { return (typeof window !== 'undefined') ? window.PlotterEngine : null; }
+  _pollEngine() {
+    if (!this._mounted) return;
+    if (this.engine()) { this.forceUpdate(); return; }
+    this._pollT = setTimeout(() => this._pollEngine(), 150);
+  }
 
   setPlot(k) {
     this.setState(s => ({
@@ -467,28 +520,127 @@ class Component extends DCLogic {
       };
     });
   }
-  removeGroup(gi) { this.setState(s => s.groups.length <= 1 ? {} : ({ groups: s.groups.filter((_, i) => i !== gi), cells: s.cells.filter((_, i) => i !== gi) })); }
+  removeGroup(gi) { this.setState(s => s.groups.length <= 1 ? {} : ({ groups: s.groups.filter((_, i) => i !== gi), cells: s.cells.filter((_, i) => i !== gi), manualPairs: [] })); }
   addX() { this.setState(s => ({ xLabels: [...s.xLabels, String(s.xLabels.length)], cells: s.cells.map(r => [...r, Array(s.replicates).fill('')]) })); }
   removeX(xi) { this.setState(s => s.xLabels.length <= 1 ? {} : ({ xLabels: s.xLabels.filter((_, i) => i !== xi), cells: s.cells.map(r => r.filter((_, i) => i !== xi)) })); }
 
-  // ---- numeric helpers ----
-  cellStats(cell) {
-    const a = this.cellVals(cell);
-    if (!a.length) return { m: 0, e: 0, n: 0, sd: 0 };
-    const m = a.reduce((s, x) => s + x, 0) / a.length;
-    const sd = a.length > 1 ? Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)) : 0;
-    const sem = sd / Math.sqrt(a.length);
-    const e = this.state.errorType === 'sd' ? sd : this.state.errorType === 'ci' ? 1.96 * sem : sem;
-    return { m, e, n: a.length, sd };
+  // ---- upload ----
+  onFile(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const eng = this.engine();
+    if (!eng) { this.set({ uploadError: 'Plotting engine still loading — please retry in a moment.' }); return; }
+    const shape = this.state.uploadShape === 'auto' ? undefined : this.state.uploadShape;
+    eng.parseFile(file, shape)
+      .then(parsed => this.applyParsed(parsed, file.name))
+      .catch(err => this.set({ uploadError: String((err && err.message) || err), uploadInfo: '' }));
+    try { input.value = ''; } catch (_) {}
+  }
+  applyParsed(parsed, fname) {
+    this.setState(s => {
+      const groups = parsed.groupNames.map((name, i) => {
+        const old = s.groups[i];
+        return old ? { ...old, name } : { name, color: this.PALETTE[i % this.PALETTE.length], marker: 'circle', line: 'solid' };
+      });
+      let reps = 1;
+      parsed.cells.forEach(row => row.forEach(c => { if (c.length > reps) reps = c.length; }));
+      const extra = (parsed.warnings && parsed.warnings.length) ? (' ' + parsed.warnings.join(' ')) : '';
+      return {
+        groups,
+        xLabels: parsed.xLabels.slice(),
+        cells: parsed.cells.map(r => r.map(c => c.slice())),
+        replicates: reps,
+        manualPairs: [],
+        uploadError: '',
+        uploadInfo: 'Loaded ' + fname + ': ' + parsed.groupNames.length + ' group(s), ' + parsed.xLabels.length + ' X value(s), parsed as ' + parsed.shape.toUpperCase() + '.' + extra,
+      };
+    });
+  }
+  onTemplate(shape) {
+    const eng = this.engine();
+    if (!eng) { this.set({ uploadError: 'Plotting engine still loading.' }); return; }
+    try { eng.downloadTemplate(shape); } catch (err) { this.set({ uploadError: String((err && err.message) || err) }); }
+  }
+
+  // ---- export ----
+  onExportSvg() { const eng = this.engine(); if (eng && this._scene) eng.exportSvg(this._scene, this.state.plotTitle || 'plot'); }
+  onExportPng() {
+    const eng = this.engine();
+    if (!eng || !this._scene) return;
+    eng.exportPng(this._scene, {
+      widthMm: parseFloat(this.state.figW) || 120,
+      heightMm: parseFloat(this.state.figH) || 90,
+      dpi: parseInt(this.state.dpi, 10) || 300,
+      title: this.state.plotTitle || 'plot',
+    }).catch(err => console.error('[plotter] PNG export failed:', err));
+  }
+
+  // ---- manual comparison selection (click legend entries in preview) ----
+  pickSeries(idx) {
+    this.setState(s => {
+      const sel = s._pendingSel;
+      if (sel == null) return { _pendingSel: idx };
+      if (sel === idx) return { _pendingSel: null };
+      const pair = [Math.min(sel, idx), Math.max(sel, idx)];
+      const exists = (s.manualPairs || []).some(p => p[0] === pair[0] && p[1] === pair[1]);
+      return { _pendingSel: null, manualPairs: exists ? s.manualPairs : [...(s.manualPairs || []), pair] };
+    });
+  }
+  removePair(i) { this.setState(s => ({ manualPairs: (s.manualPairs || []).filter((_, j) => j !== i) })); }
+
+  // ---- map state -> engine UiState ----
+  uiState() {
+    const S = this.state;
+    return {
+      plotType: S.plotType, errorType: S.errorType, xAxisType: S.xAxisType,
+      groups: S.groups, xLabels: S.xLabels, cells: S.cells,
+      yAuto: S.yAuto, yMin: S.yMin, yMax: S.yMax, yLog: S.yLog, xLog: S.xLog, gridlines: S.gridlines,
+      plotTitle: S.plotTitle, legendPos: S.legendPos, barWidth: S.barWidth, barOutline: S.barOutline,
+      violinInner: S.violinInner, showPoints: S.showPoints, xTitle: S.xTitle, yTitle: S.yTitle,
+      showSig: S.showSig, testFamily: S.testFamily, compMode: S.compMode, controlGroup: Number(S.controlGroup) || 0,
+      correction: S.correction, sigDisplay: S.sigDisplay, compareAtEachX: S.compareAtEachX,
+      manualPairs: S.manualPairs || [],
+    };
+  }
+
+  buildPlot() {
+    const E = React.createElement;
+    const eng = this.engine();
+    this._warnings = [];
+    if (!eng) {
+      return E('div', { style: { padding: '48px 12px', textAlign: 'center', color: '#9aa3ad', fontSize: '13px' } }, 'Loading plotting engine…');
+    }
+    let result;
+    try { result = eng.specFromState(this.uiState()); }
+    catch (err) { return E('div', { style: { padding: '24px', color: '#b00020', fontSize: '13px', whiteSpace: 'pre-wrap' } }, 'Plot error: ' + String((err && err.message) || err)); }
+    this._warnings = result.warnings || [];
+    let scene;
+    try { scene = eng.buildScene(result.spec); }
+    catch (err) { return E('div', { style: { padding: '24px', color: '#b00020', fontSize: '13px' } }, 'Render error: ' + String((err && err.message) || err)); }
+    this._scene = scene;
+
+    const manual = this.state.compMode === 'manual' && this.state.showSig;
+    const self = this;
+    const decorate = (node) => {
+      if (node.tag === 'svg') return { style: { display: 'block', width: '100%', height: 'auto', maxHeight: '74vh' } };
+      if (manual && node.attrs && node.attrs['data-series-index'] != null) {
+        const idx = Number(node.attrs['data-series-index']);
+        return { onClick: () => self.pickSeries(idx), style: { cursor: 'pointer' } };
+      }
+      return null;
+    };
+    return eng.toReact(React, scene.root, undefined, decorate);
   }
 
   renderVals() {
     const S = this.state;
     const E = React.createElement;
+    const plotTree = this.buildPlot();
+    const warnings = this._warnings || [];
 
     const isLine = S.plotType === 'line', isBar = S.plotType === 'bar', isViolin = S.plotType === 'violin';
 
-    // segmented button style
     const mkSeg = (active) => ({
       flex: 1, height: '30px', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600,
       cursor: 'pointer', background: active ? '#ffffff' : 'transparent', color: active ? '#111827' : '#6b7280',
@@ -496,13 +648,11 @@ class Component extends DCLogic {
     });
     const seg = (arr, cur, setter) => arr.map(o => ({ label: o.label, style: mkSeg(o.key === cur), onClick: () => setter(o.key) }));
 
-    // tab style
     const mkTab = (active) => ({
       border: 'none', background: 'none', padding: '8px 4px', marginBottom: '-1px', fontSize: '13px', fontWeight: 600,
       cursor: 'pointer', color: active ? '#1f2733' : '#9aa3ad', borderBottom: active ? '2px solid #1f2733' : '2px solid transparent',
     });
 
-    // toggle switch
     const sw = (on, toggle) => ({
       on, onClick: toggle,
       track: { width: '34px', height: '20px', borderRadius: '999px', background: on ? '#2563eb' : '#cbd2da', position: 'relative', cursor: 'pointer', transition: 'background .15s', flex: '0 0 auto' },
@@ -510,8 +660,8 @@ class Component extends DCLogic {
     });
 
     const f = (key, num) => (e) => this.set({ [key]: num ? +e.target.value : e.target.value });
+    const gname = (i) => (S.groups[i] && S.groups[i].name) || ('Group ' + (i + 1));
 
-    // ---- grid ----
     const grid = {
       xCols: S.xLabels.map((x, xi) => ({ label: x, onChange: e => this.setXLabel(xi, e.target.value), onRemove: () => this.removeX(xi) })),
       rows: S.groups.map((g, gi) => ({
@@ -519,11 +669,10 @@ class Component extends DCLogic {
         dotStyle: { width: '11px', height: '11px', borderRadius: '50%', background: g.color, flex: '0 0 auto', display: 'inline-block' },
         onName: e => this.setGroupName(gi, e.target.value),
         onRemove: () => this.removeGroup(gi),
-        cells: S.cells[gi].map((arr, xi) => ({ reps: arr.map((v, ri) => ({ v, onChange: e => this.setCell(gi, xi, ri, e.target.value) })) })),
+        cells: (S.cells[gi] || []).map((arr, xi) => ({ reps: arr.map((v, ri) => ({ v, onChange: e => this.setCell(gi, xi, ri, e.target.value) })) })),
       })),
     };
 
-    // ---- series styling ----
     const series = S.groups.map((g, gi) => ({
       name: g.name, color: g.color, marker: g.marker, line: g.line,
       swatchStyle: { position: 'absolute', inset: 0, background: g.color, display: 'block' },
@@ -533,8 +682,7 @@ class Component extends DCLogic {
       onLine: e => this.setLine(gi, e.target.value),
     }));
 
-    // ---- radio rows (comparison mode) ----
-    const mkRadioRow = (active) => ({
+    const mkRadioRow = () => ({
       display: 'flex', alignItems: 'center', gap: '9px', padding: '2px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
     });
     const mkRadio = (active) => ({
@@ -547,14 +695,17 @@ class Component extends DCLogic {
       { key: 'manual', label: 'Manual (click in preview)' },
     ].map(o => ({ label: o.label, rowStyle: mkRadioRow(), radio: mkRadio(o.key === S.compMode), onClick: () => this.set({ compMode: o.key }) }));
 
-    // ---- statistics chevron ----
     const statsChevron = {
       width: '8px', height: '8px', borderRight: '1.5px solid #6b7280', borderBottom: '1.5px solid #6b7280',
       transform: S.statsOpen ? 'rotate(45deg)' : 'rotate(-45deg)', transition: 'transform .15s', flex: '0 0 auto', marginLeft: '2px',
     };
 
+    const manualPairs = S.manualPairs || [];
+    const manualHint = (S._pendingSel != null)
+      ? ('Selected "' + gname(S._pendingSel) + '". Click another series in the legend to pair.')
+      : 'Click two series in the preview legend to add a bracket.';
+
     return {
-      // flags
       isLine, isBar, isViolin,
       isEnter: S.inputMode === 'enter', isUpload: S.inputMode === 'upload',
       errorAsRadio: isLine || isBar,
@@ -566,7 +717,6 @@ class Component extends DCLogic {
       isManualMode: S.compMode === 'manual',
       statsOpen: S.statsOpen, showSig: S.showSig,
 
-      // segmented option arrays
       plotTypeOpts: seg([{ key: 'line', label: 'Line' }, { key: 'bar', label: 'Bar' }, { key: 'violin', label: 'Violin' }], S.plotType, k => this.setPlot(k)),
       inputTabs: [{ key: 'enter', label: 'Enter data' }, { key: 'upload', label: 'Upload file' }].map(o => ({ label: o.label, style: mkTab(o.key === S.inputMode), onClick: () => this.set({ inputMode: o.key }) })),
       xTypeOpts: seg([{ key: 'numeric', label: 'Numeric' }, { key: 'categorical', label: 'Categorical' }], S.xAxisType, k => this.set({ xAxisType: k })),
@@ -577,7 +727,6 @@ class Component extends DCLogic {
       sigDisplayOpts: seg([{ key: 'asterisks', label: 'Asterisks' }, { key: 'pvalue', label: 'Exact p' }, { key: 'ns', label: 'Show "ns"' }], S.sigDisplay, k => this.set({ sigDisplay: k })),
       groupOpts: S.groups.map((g, i) => ({ value: i, label: g.name })),
 
-      // toggles
       swPoints: sw(S.showPoints, () => this.set({ showPoints: !S.showPoints })),
       swOutline: sw(S.barOutline, () => this.set({ barOutline: !S.barOutline })),
       swYAuto: sw(S.yAuto, () => this.set({ yAuto: !S.yAuto })),
@@ -587,217 +736,46 @@ class Component extends DCLogic {
       swSig: sw(S.showSig, () => this.set({ showSig: !S.showSig })),
       swEachX: sw(S.compareAtEachX, () => this.set({ compareAtEachX: !S.compareAtEachX })),
 
-      // grid + series
       grid, series,
       replicates: S.replicates,
       onReplicates: (e) => this.setReplicates(+e.target.value),
       onAddGroup: () => this.addGroup(),
       onAddX: () => this.addX(),
 
-      // bar
+      // upload
+      uploadShapeOpts: seg([{ key: 'auto', label: 'Auto' }, { key: 'long', label: 'Long' }, { key: 'wide', label: 'Wide' }], S.uploadShape, k => this.set({ uploadShape: k })),
+      onFile: (e) => this.onFile(e),
+      onTemplateLong: () => this.onTemplate('long'),
+      onTemplateWide: () => this.onTemplate('wide'),
+      uploadError: S.uploadError, uploadInfo: S.uploadInfo,
+
       barWidth: S.barWidth, onBarWidth: f('barWidth', true),
 
-      // axes
       xTitle: S.xTitle, yTitle: S.yTitle, yMin: S.yMin, yMax: S.yMax,
       onXTitle: f('xTitle'), onYTitle: f('yTitle'), onYMin: f('yMin'), onYMax: f('yMax'),
       plotTitle: S.plotTitle, onPlotTitle: f('plotTitle'),
       legendPos: S.legendPos, onLegendPos: f('legendPos'),
 
-      // export
       figW: S.figW, figH: S.figH, dpi: S.dpi,
       onFigW: f('figW'), onFigH: f('figH'), onDpi: f('dpi'),
+      onExportSvg: () => this.onExportSvg(),
+      onExportPng: () => this.onExportPng(),
 
-      // stats
       onToggleStats: () => this.set({ statsOpen: !S.statsOpen }),
       statsChevron,
       controlGroup: S.controlGroup, onControlGroup: f('controlGroup', true),
       correction: S.correction, onCorrection: f('correction'),
 
-      // the plot
-      plotSvg: this.buildPlot(),
+      // manual comparisons
+      manualHint,
+      hasManualPairs: manualPairs.length > 0,
+      manualPairRows: manualPairs.map((pr, i) => ({ label: gname(pr[0]) + ' vs ' + gname(pr[1]), onRemove: () => this.removePair(i) })),
+
+      // warnings + plot
+      plotWarnings: warnings,
+      hasPlotWarnings: warnings.length > 0,
+      plotSvg: plotTree,
     };
-  }
-
-  buildPlot() {
-    const E = React.createElement;
-    const S = this.state;
-    const isLine = S.plotType === 'line', isBar = S.plotType === 'bar', isViolin = S.plotType === 'violin';
-    const groups = S.groups;
-    const outside = S.legendPos === 'outside-right';
-
-    const PLOT = 416;
-    const X0 = 96, Y0 = 46;
-    const X1 = X0 + PLOT;
-    const Y1 = Y0 + PLOT;
-    const W = PLOT, H = PLOT;
-    const SVGH = Y1 + 60;
-    const SVGW = outside ? X1 + 172 : X1 + 44;
-    const ink = '#1f2733';
-    const AF = 'Helvetica, Arial, sans-serif';
-
-    // --- domain ---
-    let dataMax = 0;
-    groups.forEach((g, gi) => {
-      S.xLabels.forEach((_, xi) => { const st = this.cellStats(S.cells[gi][xi]); dataMax = Math.max(dataMax, st.m + st.e); });
-    });
-    let bottom = 0, top;
-    if (S.yAuto) { top = Math.max(20, Math.ceil((dataMax * 1.12) / 20) * 20); }
-    else { bottom = parseFloat(S.yMin) || 0; top = parseFloat(S.yMax) || Math.max(20, Math.ceil(dataMax / 20) * 20); }
-    if (top <= bottom) top = bottom + 20;
-    const yToPx = v => Y1 - (v - bottom) / (top - bottom) * H;
-
-    // representative value per group (last column) for bar/violin
-    const lastStats = groups.map((g, gi) => this.cellStats(S.cells[gi][S.xLabels.length - 1]));
-
-    const xLine = (i, n) => X0 + (n <= 1 ? W / 2 : W * (i / (n - 1)));
-    const xCat = (i, n) => X0 + W * ((i + 0.5) / n);
-
-    const children = [];
-
-    // --- title ---
-    if (S.plotTitle) children.push(E('text', { key: 'title', x: (X0 + X1) / 2, y: 28, textAnchor: 'middle', fontSize: 16, fontWeight: 700, fontFamily: AF, fill: ink }, S.plotTitle));
-
-    // --- gridlines (optional) ---
-    const nTicks = 5;
-    const tickVals = [];
-    for (let i = 0; i <= nTicks; i++) tickVals.push(bottom + (top - bottom) * i / nTicks);
-    if (S.gridlines) {
-      tickVals.forEach((v, i) => children.push(E('line', { key: 'grid' + i, x1: X0, y1: yToPx(v), x2: X1, y2: yToPx(v), stroke: '#eceff3', strokeWidth: 1 })));
-    }
-
-    // --- axes (left + bottom only, Prism style) ---
-    children.push(E('line', { key: 'ay', x1: X0, y1: Y0 - 4, x2: X0, y2: Y1, stroke: ink, strokeWidth: 1.6 }));
-    children.push(E('line', { key: 'ax', x1: X0, y1: Y1, x2: X1 + 4, y2: Y1, stroke: ink, strokeWidth: 1.6 }));
-
-    // y ticks (outward) + labels
-    tickVals.forEach((v, i) => {
-      children.push(E('line', { key: 'yt' + i, x1: X0 - 6, y1: yToPx(v), x2: X0, y2: yToPx(v), stroke: ink, strokeWidth: 1.6 }));
-      children.push(E('text', { key: 'ytl' + i, x: X0 - 10, y: yToPx(v) + 4, textAnchor: 'end', fontSize: 12, fontFamily: AF, fill: ink }, Math.round(v)));
-    });
-
-    // x ticks + labels
-    const nx = isLine ? S.xLabels.length : groups.length;
-    const xLabelsArr = isLine ? S.xLabels : groups.map(g => g.name);
-    const xpos = (i) => isLine ? xLine(i, nx) : xCat(i, nx);
-    xLabelsArr.forEach((lab, i) => {
-      const cx = xpos(i);
-      children.push(E('line', { key: 'xt' + i, x1: cx, y1: Y1, x2: cx, y2: Y1 + 6, stroke: ink, strokeWidth: 1.6 }));
-      children.push(E('text', { key: 'xtl' + i, x: cx, y: Y1 + 20, textAnchor: 'middle', fontSize: 12, fontFamily: AF, fill: ink }, lab));
-    });
-
-    // axis titles
-    children.push(E('text', { key: 'xtitle', x: (X0 + X1) / 2, y: Y1 + 44, textAnchor: 'middle', fontSize: 13.5, fontWeight: 600, fontFamily: AF, fill: ink }, S.xTitle));
-    children.push(E('text', { key: 'ytitle', x: 22, y: (Y0 + Y1) / 2, textAnchor: 'middle', fontSize: 13.5, fontWeight: 600, fontFamily: AF, fill: ink, transform: `rotate(-90 22 ${(Y0 + Y1) / 2})` }, S.yTitle));
-
-    // --- marker helper ---
-    const marker = (cx, cy, shape, color, sz, key) => {
-      if (shape === 'square') return E('rect', { key, x: cx - sz, y: cy - sz, width: sz * 2, height: sz * 2, fill: color, stroke: '#fff', strokeWidth: 0.8 });
-      if (shape === 'triangle') return E('polygon', { key, points: `${cx},${cy - sz * 1.15} ${cx + sz * 1.1},${cy + sz} ${cx - sz * 1.1},${cy + sz}`, fill: color, stroke: '#fff', strokeWidth: 0.8 });
-      if (shape === 'diamond') return E('polygon', { key, points: `${cx},${cy - sz * 1.25} ${cx + sz * 1.1},${cy} ${cx},${cy + sz * 1.25} ${cx - sz * 1.1},${cy}`, fill: color, stroke: '#fff', strokeWidth: 0.8 });
-      return E('circle', { key, cx, cy, r: sz, fill: color, stroke: '#fff', strokeWidth: 0.8 });
-    };
-    const ebar = (cx, m, e, color, key) => E('g', { key, stroke: color, strokeWidth: 1.5 },
-      E('line', { x1: cx, y1: yToPx(m + e), x2: cx, y2: yToPx(m - e) }),
-      E('line', { x1: cx - 3.5, y1: yToPx(m + e), x2: cx + 3.5, y2: yToPx(m + e) }),
-      E('line', { x1: cx - 3.5, y1: yToPx(m - e), x2: cx + 3.5, y2: yToPx(m - e) }),
-    );
-    const jitter = (k) => (Math.sin(k * 12.9898) * 43758.5453 % 1 + 1) % 1;
-
-    // ===== LINE =====
-    if (isLine) {
-      groups.forEach((g, gi) => {
-        const pts = S.xLabels.map((_, xi) => { const st = this.cellStats(S.cells[gi][xi]); return { cx: xLine(xi, nx), m: st.m, e: st.e }; });
-        const d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.cx + ' ' + yToPx(p.m)).join(' ');
-        children.push(E('path', { key: 'ln' + gi, d, fill: 'none', stroke: g.color, strokeWidth: 2, strokeDasharray: g.line === 'dashed' ? '6 4' : 'none', strokeLinejoin: 'round' }));
-        pts.forEach((p, xi) => children.push(ebar(p.cx, p.m, p.e, g.color, 'le' + gi + '_' + xi)));
-        pts.forEach((p, xi) => children.push(marker(p.cx, yToPx(p.m), g.marker, g.color, 4, 'lm' + gi + '_' + xi)));
-      });
-    }
-
-    // ===== BAR =====
-    if (isBar) {
-      const slot = W / nx;
-      const bw = slot * (S.barWidth / 100);
-      groups.forEach((g, gi) => {
-        const st = lastStats[gi];
-        const cx = xCat(gi, nx);
-        const x = cx - bw / 2;
-        const yTop = yToPx(st.m);
-        children.push(E('rect', { key: 'bar' + gi, x, y: yTop, width: bw, height: Y1 - yTop, fill: g.color, fillOpacity: 0.92, stroke: S.barOutline ? '#1f2733' : 'none', strokeWidth: S.barOutline ? 1.3 : 0 }));
-        children.push(ebar(cx, st.m, st.e, '#1f2733', 'be' + gi));
-        if (S.showPoints) {
-          const a = this.cellVals(S.cells[gi][S.xLabels.length - 1]);
-          a.forEach((v, k) => children.push(E('circle', { key: 'bp' + gi + '_' + k, cx: cx + (jitter(gi * 7 + k) - 0.5) * bw * 0.55, cy: yToPx(v), r: 2.2, fill: '#1f2733', fillOpacity: 0.55 })));
-        }
-      });
-      // significance brackets (auto-stacked)
-      if (S.showSig && groups.length >= 2) {
-        const brk = (i, j, label, lvl, key) => {
-          const xi = xCat(i, nx), xj = xCat(j, nx), cap = 6;
-          const yb = Y0 - 2 + lvl * 26 + 8;
-          const isNs = label === 'ns';
-          return E('g', { key },
-            E('line', { x1: xi, y1: yb, x2: xj, y2: yb, stroke: ink, strokeWidth: 1.2 }),
-            E('line', { x1: xi, y1: yb, x2: xi, y2: yb + cap, stroke: ink, strokeWidth: 1.2 }),
-            E('line', { x1: xj, y1: yb, x2: xj, y2: yb + cap, stroke: ink, strokeWidth: 1.2 }),
-            E('text', { x: (xi + xj) / 2, y: yb - (isNs ? 3 : 1), textAnchor: 'middle', fontSize: isNs ? 11 : 15, fontStyle: isNs ? 'italic' : 'normal', fontWeight: isNs ? 400 : 700, fontFamily: AF, fill: isNs ? '#6b7280' : ink }, label),
-          );
-        };
-        // shorter comparison lower, wider comparison higher so they never overlap
-        children.push(brk(0, 1, 'ns', 0, 'brk1'));
-        if (groups.length >= 3) children.push(brk(0, 2, '**', 1, 'brk2'));
-      }
-    }
-
-    // ===== VIOLIN =====
-    if (isViolin) {
-      const slot = W / nx;
-      const halfW = Math.min(34, slot * 0.34);
-      groups.forEach((g, gi) => {
-        const st = lastStats[gi];
-        const center = st.m, spread = Math.max(11, (st.sd || 4) * 2.4);
-        const cx = xCat(gi, nx);
-        const N = 28, pts = [];
-        for (let k = 0; k <= N; k++) { const v = bottom + (top - bottom) * k / N; const hw = halfW * Math.exp(-((v - center) ** 2) / (2 * spread * spread)); pts.push([v, hw]); }
-        let d = '';
-        pts.forEach((p, k) => { d += (k === 0 ? 'M' : 'L') + (cx - p[1]) + ' ' + yToPx(p[0]) + ' '; });
-        for (let k = pts.length - 1; k >= 0; k--) { d += 'L' + (cx + pts[k][1]) + ' ' + yToPx(pts[k][0]) + ' '; }
-        d += 'Z';
-        children.push(E('path', { key: 'vio' + gi, d, fill: g.color, fillOpacity: 0.32, stroke: g.color, strokeWidth: 1.6 }));
-        if (S.showPoints) {
-          const a = this.cellVals(S.cells[gi][S.xLabels.length - 1]);
-          a.forEach((v, k) => children.push(E('circle', { key: 'vp' + gi + '_' + k, cx: cx + (jitter(gi * 5 + k) - 0.5) * halfW * 0.7, cy: yToPx(v), r: 2.2, fill: g.color, fillOpacity: 0.85 })));
-        }
-        // inner
-        if (S.violinInner === 'box') {
-          const q = Math.max(5, st.sd * 0.9 || 7);
-          children.push(E('rect', { key: 'vb' + gi, x: cx - 6, y: yToPx(center + q), width: 12, height: yToPx(center - q) - yToPx(center + q), fill: '#fff', stroke: ink, strokeWidth: 1.3 }));
-          children.push(E('line', { key: 'vm' + gi, x1: cx - 6, y1: yToPx(center), x2: cx + 6, y2: yToPx(center), stroke: ink, strokeWidth: 1.6 }));
-        } else if (S.violinInner === 'meansd') {
-          const sd = st.sd || 8;
-          children.push(E('line', { key: 'vl' + gi, x1: cx, y1: yToPx(center + sd), x2: cx, y2: yToPx(center - sd), stroke: ink, strokeWidth: 1.5 }));
-          children.push(E('circle', { key: 'vc' + gi, cx, cy: yToPx(center), r: 3.5, fill: ink }));
-        }
-      });
-    }
-
-    // ===== LEGEND =====
-    if (S.legendPos !== 'none') {
-      const lx = outside ? X1 + 22 : X1 - 132;
-      const ly0 = Y0 + 6;
-      groups.forEach((g, gi) => {
-        const y = ly0 + gi * 20;
-        if (isLine) {
-          children.push(E('line', { key: 'lgl' + gi, x1: lx, y1: y, x2: lx + 22, y2: y, stroke: g.color, strokeWidth: 2, strokeDasharray: g.line === 'dashed' ? '5 4' : 'none' }));
-          children.push(marker(lx + 11, y, g.marker, g.color, 3.5, 'lgm' + gi));
-        } else {
-          children.push(E('rect', { key: 'lgr' + gi, x: lx + 2, y: y - 6, width: 16, height: 12, fill: g.color, fillOpacity: isViolin ? 0.5 : 0.92, stroke: g.color, strokeWidth: 1 }));
-        }
-        children.push(E('text', { key: 'lgt' + gi, x: lx + 28, y: y + 4, textAnchor: 'start', fontSize: 12.5, fontFamily: AF, fill: ink }, g.name));
-      });
-    }
-
-    return E('svg', { viewBox: `0 0 ${SVGW} ${SVGH}`, width: '100%', style: { display: 'block', maxHeight: '74vh' }, fontFamily: AF }, children);
   }
 }
 </script>
