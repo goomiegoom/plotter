@@ -6,6 +6,7 @@ class Component extends DCLogic {
     xTitle: 'Time (h)', yTitle: 'Response (a.u.)',
     yMin: '0', yMax: '100', yAuto: true, xLog: false, yLog: false, gridlines: false,
     plotTitle: '', legendPos: 'top-right',
+    plotTheme: 'prism', plotFont: '',
     figW: '120', figH: '90', dpi: '300',
     groups: [
       { name: 'Control', color: '#0072B2', marker: 'circle', line: 'solid' },
@@ -206,6 +207,7 @@ class Component extends DCLogic {
       showSig: S.showSig, testFamily: S.testFamily, compMode: S.compMode, controlGroup: Number(S.controlGroup) || 0,
       correction: S.correction, sigDisplay: S.sigDisplay, compareAtEachX: S.compareAtEachX,
       manualPairs: S.manualPairs || [],
+      theme: S.plotTheme, fontFamily: S.plotFont || undefined,
     };
   }
 
@@ -241,6 +243,7 @@ class Component extends DCLogic {
   renderVals() {
     const S = this.state;
     const E = React.createElement;
+    const eng = this.engine();
     const plotTree = this.buildPlot();
     const warnings = this._warnings || [];
 
@@ -331,6 +334,12 @@ class Component extends DCLogic {
       compModeOpts,
       sigDisplayOpts: seg([{ key: 'asterisks', label: 'Asterisks' }, { key: 'pvalue', label: 'Exact p' }, { key: 'ns', label: 'Show "ns"' }], S.sigDisplay, k => this.set({ sigDisplay: k })),
       groupOpts: S.groups.map((g, i) => ({ value: i, label: g.name })),
+
+      themeOpts: seg(
+        Object.values(eng ? eng.themes : { prism: { id: 'prism', label: 'Prism' } }).map(t => ({ key: t.id, label: t.label })),
+        S.plotTheme, k => this.set({ plotTheme: k })
+      ),
+      plotFont: S.plotFont, onPlotFont: f('plotFont'),
 
       swPoints: sw(S.showPoints, () => this.set({ showPoints: !S.showPoints })),
       swOutline: sw(S.barOutline, () => this.set({ barOutline: !S.barOutline })),

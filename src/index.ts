@@ -55,6 +55,9 @@ export interface UiState {
   sigDisplay: "asterisks" | "pvalue" | "ns";
   compareAtEachX: boolean;
   manualPairs?: Array<[number, number]>;
+  // appearance
+  theme?: string;
+  fontFamily?: string;
 }
 
 /** Aggregate all of a group's numeric values across every X column. */
@@ -183,6 +186,8 @@ export function specFromState(S: UiState): { spec: PlotSpec; comparisons: Compar
     compareAtEachX: S.plotType === "line" && S.compareAtEachX,
     sigDisplay: S.sigDisplay,
     brackets,
+    theme: S.theme,
+    fontFamily: S.fontFamily,
   };
   return { spec, comparisons, warnings };
 }
@@ -365,6 +370,9 @@ const PlotterEngine = {
   exportSvg,
   exportPng,
   datasetFromParsed,
+  themes: plot.THEMES,
+  defaultTheme: plot.DEFAULT_THEME,
+  fontOptions: plot.FONT_OPTIONS,
 };
 
 export type PlotterEngineApi = typeof PlotterEngine;

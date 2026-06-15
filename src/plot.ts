@@ -36,15 +36,71 @@ export function el(
 }
 
 // ---------------------------------------------------------------------------
-// Prism theme constants
+// Theme presets
 // ---------------------------------------------------------------------------
 
-const INK = "#1f2733";
-const FONT = "Helvetica, Arial, sans-serif";
-const AXIS_W = 1.5; // ~1.5px axis lines
-const TICK_LEN = 6; // outward tick length
-const MARKER_R = 3.5; // ~7px diameter markers
-const LINE_W = 2;
+/** Visual style preset — controls axis layout, line weights, and default font. */
+export interface Theme {
+  id: string;
+  label: string;
+  ink: string;
+  font: string;
+  axisWidth: number;
+  tickLen: number;
+  tickDir: "in" | "out";
+  markerR: number;
+  lineWidth: number;
+  /** draw a full 4-sided box around the plot area (vs. left+bottom only) */
+  boxed: boolean;
+  gridColor: string;
+}
+
+export const THEMES: Record<string, Theme> = {
+  prism: {
+    id: "prism",
+    label: "Prism",
+    ink: "#1f2733",
+    font: "Helvetica, Arial, sans-serif",
+    axisWidth: 1.5,
+    tickLen: 6,
+    tickDir: "out",
+    markerR: 3.5,
+    lineWidth: 2,
+    boxed: false,
+    gridColor: "#eceff3",
+  },
+  nature: {
+    id: "nature",
+    label: "Nature (boxed)",
+    ink: "#000000",
+    font: "Arial, Helvetica, sans-serif",
+    axisWidth: 1,
+    tickLen: 4,
+    tickDir: "in",
+    markerR: 3,
+    lineWidth: 1.5,
+    boxed: true,
+    gridColor: "#e6e6e6",
+  },
+};
+
+export const DEFAULT_THEME = "prism";
+
+/** A selectable font-family override, independent of the theme preset. */
+export interface FontOption {
+  id: string;
+  label: string;
+  family: string;
+}
+
+export const FONT_OPTIONS: FontOption[] = [
+  { id: "helvetica", label: "Helvetica", family: "Helvetica, Arial, sans-serif" },
+  { id: "arial", label: "Arial", family: "Arial, Helvetica, sans-serif" },
+  { id: "times", label: "Times New Roman", family: "'Times New Roman', Times, serif" },
+  { id: "georgia", label: "Georgia", family: "Georgia, 'Times New Roman', serif" },
+  { id: "courier", label: "Courier New", family: "'Courier New', Courier, monospace" },
+];
+
 
 // ---------------------------------------------------------------------------
 // Public spec
@@ -119,6 +175,10 @@ export interface PlotSpec {
   sigDisplay: "asterisks" | "pvalue" | "ns";
   brackets: SceneBracket[];
   bracketConfig?: BracketConfig;
+  /** visual style preset, see {@link THEMES}; defaults to {@link DEFAULT_THEME} */
+  theme?: string;
+  /** font-family override; defaults to the theme's font */
+  fontFamily?: string;
 }
 
 export interface Scene {
@@ -227,6 +287,16 @@ export function buildScene(spec: PlotSpec): Scene {
   const outside = spec.legendPos === "outside-right";
   const cfg = spec.bracketConfig ?? DEFAULT_BRACKET_CONFIG;
 
+  // ---- theme ----
+  const theme = THEMES[spec.theme ?? DEFAULT_THEME] ?? THEMES[DEFAULT_THEME];
+  const INK = theme.ink;
+  const FONT = spec.fontFamily || theme.font;
+  const AXIS_W = theme.axisWidth;
+  const TICK_LEN = theme.tickLen;
+  const MARKER_R = theme.markerR;
+  const LINE_W = theme.lineWidth;
+  const TICK_OUT = theme.tickDir === "out";
+
   const X1 = X0 + PLOT;
   const Y1 = Y0 + PLOT;
   const W = PLOT;
@@ -306,19 +376,26 @@ export function buildScene(spec: PlotSpec): Scene {
   // ---- gridlines ----
   if (spec.gridlines) {
     tickVals.forEach((v, i) =>
-      kids.push(el("line", { key: "grid" + i, x1: X0, y1: yToPx(v), x2: X1, y2: yToPx(v), stroke: "#eceff3", "stroke-width": 1 }))
+      kids.push(el("line", { key: "grid" + i, x1: X0, y1: yToPx(v), x2: X1, y2: yToPx(v), stroke: theme.gridColor, "stroke-width": 1 }))
     );
   }
 
-  // ---- axes (left + bottom only) ----
-  kids.push(el("line", { x1: X0, y1: Y0 - 4, x2: X0, y2: Y1, stroke: INK, "stroke-width": AXIS_W }));
-  kids.push(el("line", { x1: X0, y1: Y1, x2: X1 + 4, y2: Y1, stroke: INK, "stroke-width": AXIS_W }));
+  // ---- axes ----
+  kids.push(el("line", { x1: X0, y1: Y0 - 4, x2: X0, y2: Y1, stroke: INK, "stroke-width": AXIS_W })); // left
+  kids.push(el("line", { x1: X0, y1: Y1, x2: X1 + 4, y2: Y1, stroke: INK, "stroke-width": AXIS_W })); // bottom
+  if (theme.boxed) {
+    kids.push(el("line", { x1: X0, y1: Y0 - 4, x2: X1 + 4, y2: Y0 - 4, stroke: INK, "stroke-width": AXIS_W })); // top
+    kids.push(el("line", { x1: X1 + 4, y1: Y0 - 4, x2: X1 + 4, y2: Y1, stroke: INK, "stroke-width": AXIS_W })); // right
+  }
 
-  // ---- y ticks (outward) + labels ----
+  // ---- y ticks + labels ----
   tickVals.forEach((v) => {
-    kids.push(el("line", { x1: X0 - TICK_LEN, y1: yToPx(v), x2: X0, y2: yToPx(v), stroke: INK, "stroke-width": AXIS_W }));
+    const ty = yToPx(v);
+    if (TICK_OUT) kids.push(el("line", { x1: X0 - TICK_LEN, y1: ty, x2: X0, y2: ty, stroke: INK, "stroke-width": AXIS_W }));
+    else kids.push(el("line", { x1: X0, y1: ty, x2: X0 + TICK_LEN, y2: ty, stroke: INK, "stroke-width": AXIS_W }));
+    const labelX = TICK_OUT ? X0 - TICK_LEN - 4 : X0 - 8;
     kids.push(
-      el("text", { x: X0 - TICK_LEN - 4, y: yToPx(v) + 4, "text-anchor": "end", "font-size": 13, "font-family": FONT, fill: INK }, fmtTick(v, spec.yLog))
+      el("text", { x: labelX, y: ty + 4, "text-anchor": "end", "font-size": 13, "font-family": FONT, fill: INK }, fmtTick(v, spec.yLog))
     );
   });
 
@@ -328,8 +405,10 @@ export function buildScene(spec: PlotSpec): Scene {
     isLine ? lineX(spec.series[0]?.points[i] ?? { xNum: i } as LinePoint, i, nCat) : xCat(i);
   xTickLabels.forEach((lab, i) => {
     const cx = xTickPos(i);
-    kids.push(el("line", { x1: cx, y1: Y1, x2: cx, y2: Y1 + TICK_LEN, stroke: INK, "stroke-width": AXIS_W }));
-    kids.push(el("text", { x: cx, y: Y1 + 20, "text-anchor": "middle", "font-size": 13, "font-family": FONT, fill: INK }, lab));
+    if (TICK_OUT) kids.push(el("line", { x1: cx, y1: Y1, x2: cx, y2: Y1 + TICK_LEN, stroke: INK, "stroke-width": AXIS_W }));
+    else kids.push(el("line", { x1: cx, y1: Y1 - TICK_LEN, x2: cx, y2: Y1, stroke: INK, "stroke-width": AXIS_W }));
+    const labelY = TICK_OUT ? Y1 + 20 : Y1 + 18;
+    kids.push(el("text", { x: cx, y: labelY, "text-anchor": "middle", "font-size": 13, "font-family": FONT, fill: INK }, lab));
   });
 
   // ---- axis titles ----
@@ -434,11 +513,11 @@ export function buildScene(spec: PlotSpec): Scene {
   // ===== SIGNIFICANCE =====
   if (spec.showSig && spec.brackets.length) {
     if (isLine && spec.compareAtEachX) {
-      kids.push(...buildPerXMarkers(spec, lineX, yToPx, nCat));
+      kids.push(...buildPerXMarkers(spec, lineX, yToPx, nCat, INK, FONT));
     } else if (isLine) {
-      kids.push(...buildSeriesAnnotations(spec, X0, Y0));
+      kids.push(...buildSeriesAnnotations(spec, X0, Y0, INK, FONT));
     } else {
-      kids.push(...buildHorizontalBrackets(spec, xCat, yToPx, cfg, Y0));
+      kids.push(...buildHorizontalBrackets(spec, xCat, yToPx, cfg, Y0, INK, FONT));
     }
   }
 
@@ -477,7 +556,9 @@ function buildHorizontalBrackets(
   xCat: (i: number) => number,
   yToPx: (v: number) => number,
   cfg: BracketConfig,
-  Y0: number
+  Y0: number,
+  ink: string,
+  font: string
 ): El[] {
   const spans = spec.brackets.map((b) => [b.aIndex, b.bIndex] as [number, number]);
   const levels = assignBracketLevels(spans);
@@ -491,7 +572,7 @@ function buildHorizontalBrackets(
       seriesTopPx(spec, b.bIndex, yToPx)
     );
     const yb = Math.min(topData, Y0 + 4) - cfg.gap - levels[idx] * cfg.height;
-    out.push(bracketEl(xi, xj, yb, cfg.cap, b.label, b.isNs));
+    out.push(bracketEl(xi, xj, yb, cfg.cap, b.label, b.isNs, ink, font));
   });
   return out;
 }
@@ -504,16 +585,16 @@ function seriesTopPx(spec: PlotSpec, i: number, yToPx: (v: number) => number): n
   return yToPx(Math.max(top, maxVal));
 }
 
-function bracketEl(xi: number, xj: number, yb: number, cap: number, label: string, isNs: boolean): El {
+function bracketEl(xi: number, xj: number, yb: number, cap: number, label: string, isNs: boolean, ink: string, font: string): El {
   return el(
     "g",
     {},
-    el("line", { x1: xi, y1: yb, x2: xj, y2: yb, stroke: INK, "stroke-width": 1.2 }),
-    el("line", { x1: xi, y1: yb, x2: xi, y2: yb + cap, stroke: INK, "stroke-width": 1.2 }),
-    el("line", { x1: xj, y1: yb, x2: xj, y2: yb + cap, stroke: INK, "stroke-width": 1.2 }),
+    el("line", { x1: xi, y1: yb, x2: xj, y2: yb, stroke: ink, "stroke-width": 1.2 }),
+    el("line", { x1: xi, y1: yb, x2: xi, y2: yb + cap, stroke: ink, "stroke-width": 1.2 }),
+    el("line", { x1: xj, y1: yb, x2: xj, y2: yb + cap, stroke: ink, "stroke-width": 1.2 }),
     el(
       "text",
-      { x: (xi + xj) / 2, y: yb - (isNs ? 3 : 1), "text-anchor": "middle", "font-size": isNs ? 11 : 15, "font-style": isNs ? "italic" : "normal", "font-weight": isNs ? 400 : 700, "font-family": FONT, fill: isNs ? "#6b7280" : INK },
+      { x: (xi + xj) / 2, y: yb - (isNs ? 3 : 1), "text-anchor": "middle", "font-size": isNs ? 11 : 15, "font-style": isNs ? "italic" : "normal", "font-weight": isNs ? 400 : 700, "font-family": font, fill: isNs ? "#6b7280" : ink },
       label
     )
   );
@@ -523,7 +604,9 @@ function buildPerXMarkers(
   spec: PlotSpec,
   lineX: (p: LinePoint, i: number, n: number) => number,
   yToPx: (v: number) => number,
-  nCat: number
+  nCat: number,
+  ink: string,
+  font: string
 ): El[] {
   const out: El[] = [];
   // group brackets by xIndex, stack vertically per X position
@@ -545,21 +628,21 @@ function buildPerXMarkers(
     list.forEach((b, k) => {
       const y = topPx - 10 - k * 14;
       out.push(
-        el("text", { x: cx, y, "text-anchor": "middle", "font-size": b.isNs ? 10 : 14, "font-style": b.isNs ? "italic" : "normal", "font-weight": b.isNs ? 400 : 700, "font-family": FONT, fill: b.isNs ? "#6b7280" : INK }, b.label)
+        el("text", { x: cx, y, "text-anchor": "middle", "font-size": b.isNs ? 10 : 14, "font-style": b.isNs ? "italic" : "normal", "font-weight": b.isNs ? 400 : 700, "font-family": font, fill: b.isNs ? "#6b7280" : ink }, b.label)
       );
     });
   }
   return out;
 }
 
-function buildSeriesAnnotations(spec: PlotSpec, X0: number, Y0: number): El[] {
+function buildSeriesAnnotations(spec: PlotSpec, X0: number, Y0: number, ink: string, font: string): El[] {
   // For whole-series line comparisons (no per-X mode): a compact stacked list.
   const out: El[] = [];
   spec.brackets.forEach((b, i) => {
     const a = spec.series[b.aIndex]?.name ?? "?";
     const bb = spec.series[b.bIndex]?.name ?? "?";
     out.push(
-      el("text", { x: X0 + 8, y: Y0 + 12 + i * 16, "text-anchor": "start", "font-size": 12, "font-family": FONT, fill: b.isNs ? "#6b7280" : INK }, `${a} vs ${bb}: ${b.label}`)
+      el("text", { x: X0 + 8, y: Y0 + 12 + i * 16, "text-anchor": "start", "font-size": 12, "font-family": font, fill: b.isNs ? "#6b7280" : ink }, `${a} vs ${bb}: ${b.label}`)
     );
   });
   return out;

@@ -623,6 +623,9 @@ var PlotterEngineBundle = (() => {
   var plot_exports = {};
   __export(plot_exports, {
     DEFAULT_BRACKET_CONFIG: () => DEFAULT_BRACKET_CONFIG,
+    DEFAULT_THEME: () => DEFAULT_THEME,
+    FONT_OPTIONS: () => FONT_OPTIONS,
+    THEMES: () => THEMES,
     assignBracketLevels: () => assignBracketLevels,
     buildScene: () => buildScene,
     dpiScale: () => dpiScale,
@@ -641,12 +644,42 @@ var PlotterEngineBundle = (() => {
       children: children.filter((c) => c != null)
     };
   }
-  var INK = "#1f2733";
-  var FONT = "Helvetica, Arial, sans-serif";
-  var AXIS_W = 1.5;
-  var TICK_LEN = 6;
-  var MARKER_R = 3.5;
-  var LINE_W = 2;
+  var THEMES = {
+    prism: {
+      id: "prism",
+      label: "Prism",
+      ink: "#1f2733",
+      font: "Helvetica, Arial, sans-serif",
+      axisWidth: 1.5,
+      tickLen: 6,
+      tickDir: "out",
+      markerR: 3.5,
+      lineWidth: 2,
+      boxed: false,
+      gridColor: "#eceff3"
+    },
+    nature: {
+      id: "nature",
+      label: "Nature (boxed)",
+      ink: "#000000",
+      font: "Arial, Helvetica, sans-serif",
+      axisWidth: 1,
+      tickLen: 4,
+      tickDir: "in",
+      markerR: 3,
+      lineWidth: 1.5,
+      boxed: true,
+      gridColor: "#e6e6e6"
+    }
+  };
+  var DEFAULT_THEME = "prism";
+  var FONT_OPTIONS = [
+    { id: "helvetica", label: "Helvetica", family: "Helvetica, Arial, sans-serif" },
+    { id: "arial", label: "Arial", family: "Arial, Helvetica, sans-serif" },
+    { id: "times", label: "Times New Roman", family: "'Times New Roman', Times, serif" },
+    { id: "georgia", label: "Georgia", family: "Georgia, 'Times New Roman', serif" },
+    { id: "courier", label: "Courier New", family: "'Courier New', Courier, monospace" }
+  ];
   var DEFAULT_BRACKET_CONFIG = { height: 22, gap: 14, cap: 6 };
   function assignBracketLevels(spans) {
     var _a, _b;
@@ -708,12 +741,20 @@ var PlotterEngineBundle = (() => {
     return { dmax, dmin };
   }
   function buildScene(spec) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e;
     const isLine = spec.plotType === "line";
     const isBar = spec.plotType === "bar";
     const isViolin = spec.plotType === "violin";
     const outside = spec.legendPos === "outside-right";
     const cfg = (_a = spec.bracketConfig) != null ? _a : DEFAULT_BRACKET_CONFIG;
+    const theme = (_c = THEMES[(_b = spec.theme) != null ? _b : DEFAULT_THEME]) != null ? _c : THEMES[DEFAULT_THEME];
+    const INK = theme.ink;
+    const FONT = spec.fontFamily || theme.font;
+    const AXIS_W = theme.axisWidth;
+    const TICK_LEN = theme.tickLen;
+    const MARKER_R = theme.markerR;
+    const LINE_W = theme.lineWidth;
+    const TICK_OUT = theme.tickDir === "out";
     const X1 = X0 + PLOT;
     const Y1 = Y0 + PLOT;
     const W = PLOT;
@@ -747,7 +788,7 @@ var PlotterEngineBundle = (() => {
     };
     const nCat = isLine ? spec.xLabels.length : spec.series.length;
     const xCat = (i) => X0 + W * ((i + 0.5) / Math.max(1, nCat));
-    const xNums = (_c = (_b = spec.series[0]) == null ? void 0 : _b.points.map((p) => p.xNum)) != null ? _c : [];
+    const xNums = (_e = (_d = spec.series[0]) == null ? void 0 : _d.points.map((p) => p.xNum)) != null ? _e : [];
     const xNumMin = Math.min(...xNums.length ? xNums : [0]);
     const xNumMax = Math.max(...xNums.length ? xNums : [1]);
     const xLineNumeric = (xn) => {
@@ -778,15 +819,22 @@ var PlotterEngineBundle = (() => {
     }
     if (spec.gridlines) {
       tickVals.forEach(
-        (v, i) => kids.push(el("line", { key: "grid" + i, x1: X0, y1: yToPx(v), x2: X1, y2: yToPx(v), stroke: "#eceff3", "stroke-width": 1 }))
+        (v, i) => kids.push(el("line", { key: "grid" + i, x1: X0, y1: yToPx(v), x2: X1, y2: yToPx(v), stroke: theme.gridColor, "stroke-width": 1 }))
       );
     }
     kids.push(el("line", { x1: X0, y1: Y0 - 4, x2: X0, y2: Y1, stroke: INK, "stroke-width": AXIS_W }));
     kids.push(el("line", { x1: X0, y1: Y1, x2: X1 + 4, y2: Y1, stroke: INK, "stroke-width": AXIS_W }));
+    if (theme.boxed) {
+      kids.push(el("line", { x1: X0, y1: Y0 - 4, x2: X1 + 4, y2: Y0 - 4, stroke: INK, "stroke-width": AXIS_W }));
+      kids.push(el("line", { x1: X1 + 4, y1: Y0 - 4, x2: X1 + 4, y2: Y1, stroke: INK, "stroke-width": AXIS_W }));
+    }
     tickVals.forEach((v) => {
-      kids.push(el("line", { x1: X0 - TICK_LEN, y1: yToPx(v), x2: X0, y2: yToPx(v), stroke: INK, "stroke-width": AXIS_W }));
+      const ty = yToPx(v);
+      if (TICK_OUT) kids.push(el("line", { x1: X0 - TICK_LEN, y1: ty, x2: X0, y2: ty, stroke: INK, "stroke-width": AXIS_W }));
+      else kids.push(el("line", { x1: X0, y1: ty, x2: X0 + TICK_LEN, y2: ty, stroke: INK, "stroke-width": AXIS_W }));
+      const labelX = TICK_OUT ? X0 - TICK_LEN - 4 : X0 - 8;
       kids.push(
-        el("text", { x: X0 - TICK_LEN - 4, y: yToPx(v) + 4, "text-anchor": "end", "font-size": 13, "font-family": FONT, fill: INK }, fmtTick(v, spec.yLog))
+        el("text", { x: labelX, y: ty + 4, "text-anchor": "end", "font-size": 13, "font-family": FONT, fill: INK }, fmtTick(v, spec.yLog))
       );
     });
     const xTickLabels = isLine ? spec.xLabels : spec.series.map((s) => s.name);
@@ -796,8 +844,10 @@ var PlotterEngineBundle = (() => {
     };
     xTickLabels.forEach((lab, i) => {
       const cx = xTickPos(i);
-      kids.push(el("line", { x1: cx, y1: Y1, x2: cx, y2: Y1 + TICK_LEN, stroke: INK, "stroke-width": AXIS_W }));
-      kids.push(el("text", { x: cx, y: Y1 + 20, "text-anchor": "middle", "font-size": 13, "font-family": FONT, fill: INK }, lab));
+      if (TICK_OUT) kids.push(el("line", { x1: cx, y1: Y1, x2: cx, y2: Y1 + TICK_LEN, stroke: INK, "stroke-width": AXIS_W }));
+      else kids.push(el("line", { x1: cx, y1: Y1 - TICK_LEN, x2: cx, y2: Y1, stroke: INK, "stroke-width": AXIS_W }));
+      const labelY = TICK_OUT ? Y1 + 20 : Y1 + 18;
+      kids.push(el("text", { x: cx, y: labelY, "text-anchor": "middle", "font-size": 13, "font-family": FONT, fill: INK }, lab));
     });
     kids.push(el("text", { x: (X0 + X1) / 2, y: Y1 + 44, "text-anchor": "middle", "font-size": 14, "font-weight": 600, "font-family": FONT, fill: INK }, spec.xTitle));
     const ymid = (Y0 + Y1) / 2;
@@ -895,11 +945,11 @@ var PlotterEngineBundle = (() => {
     }
     if (spec.showSig && spec.brackets.length) {
       if (isLine && spec.compareAtEachX) {
-        kids.push(...buildPerXMarkers(spec, lineX, yToPx, nCat));
+        kids.push(...buildPerXMarkers(spec, lineX, yToPx, nCat, INK, FONT));
       } else if (isLine) {
-        kids.push(...buildSeriesAnnotations(spec, X0, Y0));
+        kids.push(...buildSeriesAnnotations(spec, X0, Y0, INK, FONT));
       } else {
-        kids.push(...buildHorizontalBrackets(spec, xCat, yToPx, cfg, Y0));
+        kids.push(...buildHorizontalBrackets(spec, xCat, yToPx, cfg, Y0, INK, FONT));
       }
     }
     if (spec.legendPos !== "none") {
@@ -925,7 +975,7 @@ var PlotterEngineBundle = (() => {
     );
     return { root, width: SVGW, height: SVGH };
   }
-  function buildHorizontalBrackets(spec, xCat, yToPx, cfg, Y02) {
+  function buildHorizontalBrackets(spec, xCat, yToPx, cfg, Y02, ink, font) {
     const spans = spec.brackets.map((b) => [b.aIndex, b.bIndex]);
     const levels = assignBracketLevels(spans);
     const out = [];
@@ -937,7 +987,7 @@ var PlotterEngineBundle = (() => {
         seriesTopPx(spec, b.bIndex, yToPx)
       );
       const yb = Math.min(topData, Y02 + 4) - cfg.gap - levels[idx] * cfg.height;
-      out.push(bracketEl(xi, xj, yb, cfg.cap, b.label, b.isNs));
+      out.push(bracketEl(xi, xj, yb, cfg.cap, b.label, b.isNs, ink, font));
     });
     return out;
   }
@@ -948,21 +998,21 @@ var PlotterEngineBundle = (() => {
     const maxVal = s.agg.values.length ? Math.max(...s.agg.values) : top;
     return yToPx(Math.max(top, maxVal));
   }
-  function bracketEl(xi, xj, yb, cap, label, isNs) {
+  function bracketEl(xi, xj, yb, cap, label, isNs, ink, font) {
     return el(
       "g",
       {},
-      el("line", { x1: xi, y1: yb, x2: xj, y2: yb, stroke: INK, "stroke-width": 1.2 }),
-      el("line", { x1: xi, y1: yb, x2: xi, y2: yb + cap, stroke: INK, "stroke-width": 1.2 }),
-      el("line", { x1: xj, y1: yb, x2: xj, y2: yb + cap, stroke: INK, "stroke-width": 1.2 }),
+      el("line", { x1: xi, y1: yb, x2: xj, y2: yb, stroke: ink, "stroke-width": 1.2 }),
+      el("line", { x1: xi, y1: yb, x2: xi, y2: yb + cap, stroke: ink, "stroke-width": 1.2 }),
+      el("line", { x1: xj, y1: yb, x2: xj, y2: yb + cap, stroke: ink, "stroke-width": 1.2 }),
       el(
         "text",
-        { x: (xi + xj) / 2, y: yb - (isNs ? 3 : 1), "text-anchor": "middle", "font-size": isNs ? 11 : 15, "font-style": isNs ? "italic" : "normal", "font-weight": isNs ? 400 : 700, "font-family": FONT, fill: isNs ? "#6b7280" : INK },
+        { x: (xi + xj) / 2, y: yb - (isNs ? 3 : 1), "text-anchor": "middle", "font-size": isNs ? 11 : 15, "font-style": isNs ? "italic" : "normal", "font-weight": isNs ? 400 : 700, "font-family": font, fill: isNs ? "#6b7280" : ink },
         label
       )
     );
   }
-  function buildPerXMarkers(spec, lineX, yToPx, nCat) {
+  function buildPerXMarkers(spec, lineX, yToPx, nCat, ink, font) {
     var _a, _b, _c;
     const out = [];
     const byX = /* @__PURE__ */ new Map();
@@ -982,20 +1032,20 @@ var PlotterEngineBundle = (() => {
       list.forEach((b, k) => {
         const y = topPx - 10 - k * 14;
         out.push(
-          el("text", { x: cx, y, "text-anchor": "middle", "font-size": b.isNs ? 10 : 14, "font-style": b.isNs ? "italic" : "normal", "font-weight": b.isNs ? 400 : 700, "font-family": FONT, fill: b.isNs ? "#6b7280" : INK }, b.label)
+          el("text", { x: cx, y, "text-anchor": "middle", "font-size": b.isNs ? 10 : 14, "font-style": b.isNs ? "italic" : "normal", "font-weight": b.isNs ? 400 : 700, "font-family": font, fill: b.isNs ? "#6b7280" : ink }, b.label)
         );
       });
     }
     return out;
   }
-  function buildSeriesAnnotations(spec, X02, Y02) {
+  function buildSeriesAnnotations(spec, X02, Y02, ink, font) {
     const out = [];
     spec.brackets.forEach((b, i) => {
       var _a, _b, _c, _d;
       const a = (_b = (_a = spec.series[b.aIndex]) == null ? void 0 : _a.name) != null ? _b : "?";
       const bb = (_d = (_c = spec.series[b.bIndex]) == null ? void 0 : _c.name) != null ? _d : "?";
       out.push(
-        el("text", { x: X02 + 8, y: Y02 + 12 + i * 16, "text-anchor": "start", "font-size": 12, "font-family": FONT, fill: b.isNs ? "#6b7280" : INK }, `${a} vs ${bb}: ${b.label}`)
+        el("text", { x: X02 + 8, y: Y02 + 12 + i * 16, "text-anchor": "start", "font-size": 12, "font-family": font, fill: b.isNs ? "#6b7280" : ink }, `${a} vs ${bb}: ${b.label}`)
       );
     });
     return out;
@@ -1169,7 +1219,9 @@ var PlotterEngineBundle = (() => {
       showSig: S.showSig,
       compareAtEachX: S.plotType === "line" && S.compareAtEachX,
       sigDisplay: S.sigDisplay,
-      brackets
+      brackets,
+      theme: S.theme,
+      fontFamily: S.fontFamily
     };
     return { spec, comparisons, warnings };
   }
@@ -1321,7 +1373,10 @@ var PlotterEngineBundle = (() => {
     downloadTemplate,
     exportSvg,
     exportPng,
-    datasetFromParsed
+    datasetFromParsed,
+    themes: THEMES,
+    defaultTheme: DEFAULT_THEME,
+    fontOptions: FONT_OPTIONS
   };
   globalThis.PlotterEngine = PlotterEngine;
   var src_default = PlotterEngine;

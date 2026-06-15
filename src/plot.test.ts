@@ -177,3 +177,33 @@ describe("buildScene", () => {
     expect(svg).toContain(">1000<");
   });
 });
+
+describe("themes", () => {
+  test("default (prism) theme draws only left+bottom axis lines with outward ticks", () => {
+    const svg = serializeSvg(buildScene(baseSpec()));
+    // 2 axis lines + outward y/x ticks; no boxed top/right lines
+    expect(svg).toContain('stroke="#1f2733"');
+    expect(svg).toContain("Helvetica");
+  });
+
+  test("nature theme draws a boxed (4-line) axis frame in black", () => {
+    const prism = serializeSvg(buildScene(baseSpec()));
+    const nature = serializeSvg(buildScene(baseSpec({ theme: "nature" })));
+    const countLines = (svg: string) => (svg.match(/<line /g) || []).length;
+    expect(countLines(nature)).toBeGreaterThan(countLines(prism));
+    expect(nature).toContain('stroke="#000000"');
+    expect(nature).toContain("Arial");
+  });
+
+  test("fontFamily overrides the theme's default font", () => {
+    const svg = serializeSvg(buildScene(baseSpec({ fontFamily: "'Times New Roman', Times, serif" })));
+    expect(svg).toContain("Times New Roman");
+    expect(svg).not.toContain("Helvetica");
+  });
+
+  test("unknown theme id falls back to prism", () => {
+    const fallback = serializeSvg(buildScene(baseSpec({ theme: "bogus" })));
+    const prism = serializeSvg(buildScene(baseSpec()));
+    expect(fallback).toEqual(prism);
+  });
+});
