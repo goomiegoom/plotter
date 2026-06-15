@@ -97,10 +97,23 @@ located errors; blanks are ignored.
 
 A React-free scene tree → converted to React elements for live display, and
 serialized to a standalone SVG string for export (the *same* tree, so what you
-see is what you export). Prism theme: white background, only left + bottom axis
-lines (~1.5px), outward 6px ticks, no box/mirror, optional gridlines,
-Arial/Helvetica. Per-series colour/marker/line-style, Y range, log scale,
+see is what you export). Per-series colour/marker/line-style, Y range, log scale,
 legend position, and title are all honoured.
+
+### Theme presets & fonts
+
+`buildScene` takes an optional `theme` (key into `THEMES`) and `fontFamily`
+override:
+
+- **Prism** (default) — white background, only left + bottom axis lines
+  (~1.5px), outward 6px ticks, no box/mirror.
+- **Nature (boxed)** — black ink, full 4-sided axis box, thinner (1px) lines,
+  inward 4px ticks.
+
+Either theme's default font (Helvetica/Arial vs. Arial) can be overridden
+independently via `fontFamily` — Helvetica, Arial, Times New Roman, Georgia, or
+Courier New — exposed in the UI as a "Plot style" toggle + "Font" dropdown.
+Gridline colour and marker/line weights also come from the active theme.
 
 - **Line** — numeric or categorical X (numeric supports log); markers + line +
   capped error bars in the series colour.
