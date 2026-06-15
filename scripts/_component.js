@@ -25,6 +25,7 @@ class Component extends DCLogic {
     // upload + interaction
     uploadShape: 'auto', uploadError: '', uploadInfo: '',
     manualPairs: [], _pendingSel: null,
+    gridModalOpen: false,
   };
 
   PALETTE = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#D55E00', '#56B4E9', '#999999', '#000000'];
@@ -345,6 +346,10 @@ class Component extends DCLogic {
       onReplicates: (e) => this.setReplicates(+e.target.value),
       onAddGroup: () => this.addGroup(),
       onAddX: () => this.addX(),
+      gridModalOpen: S.gridModalOpen,
+      onOpenGridModal: () => this.set({ gridModalOpen: true }),
+      onCloseGridModal: () => this.set({ gridModalOpen: false }),
+      stopProp: (e) => e.stopPropagation(),
 
       // upload
       uploadShapeOpts: seg([{ key: 'auto', label: 'Auto' }, { key: 'long', label: 'Long' }, { key: 'wide', label: 'Wide' }], S.uploadShape, k => this.set({ uploadShape: k })),
