@@ -51,6 +51,53 @@ class Component extends DCLogic {
 
   // ---- grid handlers ----
   setCell(gi, xi, ri, v) { this.setState(s => { const c = s.cells.map(r => r.map(cell => cell.slice())); c[gi][xi][ri] = v; return { cells: c }; }); }
+
+  // Paste a block copied from a spreadsheet (tab-separated columns, newline
+  // rows) into the grid, anchored at the cell that received the paste. Each
+  // pasted row flows DOWN into successive groups; each pasted column flows
+  // RIGHT across the replicate/X slots. Missing groups and X points are added
+  // automatically. A single value (no tabs/newlines) falls through to the
+  // normal onChange so ordinary typing/paste of one number still works.
+  pasteAt(gi, xi, ri, e) {
+    const text = (e.clipboardData || (typeof window !== 'undefined' && window.clipboardData) || {}).getData
+      ? (e.clipboardData || window.clipboardData).getData('text')
+      : '';
+    if (!text || !/[\t\n\r]/.test(text)) return; // let single-value paste through
+    e.preventDefault();
+    const rows = text.replace(/\r\n?/g, '\n').replace(/\n+$/,'').split('\n').map(r => r.split('\t'));
+    this.setState(s => {
+      const reps = s.replicates;
+      const groups = s.groups.map(o => ({ ...o }));
+      const xLabels = s.xLabels.slice();
+      const cells = s.cells.map(r => r.map(c => c.slice()));
+      const ensureGroup = (g) => {
+        while (groups.length <= g) {
+          const idx = groups.length;
+          groups.push({ name: 'Group ' + (idx + 1), color: this.PALETTE[idx % this.PALETTE.length], marker: 'circle', line: 'solid' });
+          cells.push(xLabels.map(() => Array(reps).fill('')));
+        }
+      };
+      const ensureX = (x) => {
+        while (xLabels.length <= x) {
+          xLabels.push(String(xLabels.length));
+          cells.forEach(row => row.push(Array(reps).fill('')));
+        }
+      };
+      const anchorSlot = xi * reps + ri;
+      rows.forEach((cols, r) => {
+        const g = gi + r;
+        ensureGroup(g);
+        cols.forEach((raw, c) => {
+          const slot = anchorSlot + c;
+          const x = Math.floor(slot / reps);
+          const rep = slot % reps;
+          ensureX(x);
+          cells[g][x][rep] = String(raw).trim();
+        });
+      });
+      return { groups, xLabels, cells };
+    });
+  }
   setReplicates(n) {
     n = Math.max(1, Math.min(12, n || 1));
     this.setState(s => ({
@@ -226,7 +273,7 @@ class Component extends DCLogic {
         dotStyle: { width: '11px', height: '11px', borderRadius: '50%', background: g.color, flex: '0 0 auto', display: 'inline-block' },
         onName: e => this.setGroupName(gi, e.target.value),
         onRemove: () => this.removeGroup(gi),
-        cells: (S.cells[gi] || []).map((arr, xi) => ({ reps: arr.map((v, ri) => ({ v, onChange: e => this.setCell(gi, xi, ri, e.target.value) })) })),
+        cells: (S.cells[gi] || []).map((arr, xi) => ({ reps: arr.map((v, ri) => ({ v, onChange: e => this.setCell(gi, xi, ri, e.target.value), onPaste: e => this.pasteAt(gi, xi, ri, e) })) })),
       })),
     };
 
