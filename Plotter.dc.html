@@ -67,6 +67,11 @@
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:12.5px; color:#4b5563;">Replicates per point</span>
                 <input type="number" min="1" max="12" value="{{ replicates }}" onChange="{{ onReplicates }}" style="width:54px; height:28px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; text-align:center; font-variant-numeric:tabular-nums;">
+                <div style="flex:1;"></div>
+                <button onClick="{{ onOpenGridModal }}" title="Open data editor in a larger window" style="border:1px solid #d8dce3; background:#fff; color:#374151; border-radius:6px; padding:5px 10px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:5px;">
+                  <span style="display:inline-block; width:10px; height:10px; border:1.4px solid #6b7280; position:relative;"><span style="position:absolute; top:-3px; left:-3px; width:5px; height:5px; border-top:1.4px solid #6b7280; border-left:1.4px solid #6b7280;"></span><span style="position:absolute; bottom:-3px; right:-3px; width:5px; height:5px; border-bottom:1.4px solid #6b7280; border-right:1.4px solid #6b7280;"></span></span>
+                  Expand
+                </button>
               </div>
               <div style="border:1px solid #e5e8ec; border-radius:8px; overflow:auto; max-height:240px;">
                 <table style="border-collapse:collapse; font-size:12px; min-width:100%;">
@@ -438,6 +443,71 @@
     </div>
 
   </div>
+
+  <!-- DATA EDITOR MODAL -->
+  <sc-if value="{{ gridModalOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; background:rgba(15,23,32,0.45); display:flex; align-items:center; justify-content:center; z-index:50; padding:24px;" onClick="{{ onCloseGridModal }}">
+      <div style="background:#fff; border-radius:12px; box-shadow:0 12px 40px rgba(20,30,45,0.28); width:min(1180px, 100%); max-height:90vh; display:flex; flex-direction:column; overflow:hidden;" onClick="{{ stopProp }}">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid #e5e8ec; flex:0 0 auto;">
+          <div style="font-size:14.5px; font-weight:700;">Enter data</div>
+          <button onClick="{{ onCloseGridModal }}" title="Close" style="border:none; background:none; color:#9aa3ad; cursor:pointer; font-size:22px; line-height:1; padding:2px 4px;">×</button>
+        </div>
+        <div style="padding:16px 20px 20px; overflow:auto; display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12.5px; color:#4b5563;">Replicates per point</span>
+            <input type="number" min="1" max="12" value="{{ replicates }}" onChange="{{ onReplicates }}" style="width:54px; height:28px; border:1px solid #d8dce3; border-radius:6px; padding:0 8px; font-size:13px; text-align:center; font-variant-numeric:tabular-nums;">
+          </div>
+          <div style="border:1px solid #e5e8ec; border-radius:8px; overflow:auto; max-height:calc(90vh - 200px);">
+            <table style="border-collapse:collapse; font-size:13px; min-width:100%;">
+              <thead>
+                <tr>
+                  <th style="position:sticky; left:0; top:0; z-index:2; background:#f1f4f7; border-bottom:1px solid #e5e8ec; border-right:1px solid #e5e8ec; padding:8px 10px; font-weight:600; color:#7a838e; text-align:left; white-space:nowrap;">Group \\ X</th>
+                  <sc-for list="{{ grid.xCols }}" as="c" hint-placeholder-count="5">
+                    <th style="background:#f1f4f7; border-bottom:1px solid #e5e8ec; border-right:1px solid #eef1f4; padding:6px; min-width:96px;">
+                      <div style="display:flex; align-items:center; gap:2px;">
+                        <input value="{{ c.label }}" onChange="{{ c.onChange }}" class="gcell" style="width:100%; border:1px solid transparent; background:transparent; border-radius:4px; padding:4px 5px; font-size:13px; font-weight:600; text-align:center; color:#1f2733;">
+                        <button onClick="{{ c.onRemove }}" title="Remove X point" style="border:none; background:none; color:#b8c0c9; cursor:pointer; font-size:15px; line-height:1; padding:1px 2px;">×</button>
+                      </div>
+                    </th>
+                  </sc-for>
+                  <th style="background:#f1f4f7; border-bottom:1px solid #e5e8ec; padding:6px;">
+                    <button onClick="{{ onAddX }}" title="Add X point" style="border:1px dashed #c4cbd3; background:#fff; color:#6b7280; border-radius:5px; width:26px; height:26px; cursor:pointer; font-size:15px; line-height:1;">+</button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ grid.rows }}" as="r" hint-placeholder-count="3">
+                  <tr>
+                    <td style="position:sticky; left:0; z-index:1; background:#fff; border-bottom:1px solid #eef1f4; border-right:1px solid #e5e8ec; padding:6px 8px; white-space:nowrap;">
+                      <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="{{ r.dotStyle }}"></span>
+                        <input value="{{ r.name }}" onChange="{{ r.onName }}" class="gcell" style="width:104px; border:1px solid transparent; background:transparent; border-radius:4px; padding:4px 5px; font-size:13px; font-weight:600;">
+                        <button onClick="{{ r.onRemove }}" title="Remove group" style="border:none; background:none; color:#b8c0c9; cursor:pointer; font-size:15px; line-height:1;">×</button>
+                      </div>
+                    </td>
+                    <sc-for list="{{ r.cells }}" as="cell">
+                      <td style="border-bottom:1px solid #eef1f4; border-right:1px solid #e5e8ec; padding:0; vertical-align:middle;">
+                        <div style="display:flex;">
+                          <sc-for list="{{ cell.reps }}" as="rep">
+                            <input value="{{ rep.v }}" onChange="{{ rep.onChange }}" onPaste="{{ rep.onPaste }}" class="gcell" inputmode="decimal" style="width:46px; border:none; border-right:1px solid #f0f2f5; background:transparent; padding:9px 0; font-size:13px; font-variant-numeric:tabular-nums; color:#374151; text-align:center;">
+                          </sc-for>
+                        </div>
+                      </td>
+                    </sc-for>
+                    <td style="border-bottom:1px solid #eef1f4;"></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <button onClick="{{ onAddGroup }}" style="align-self:flex-start; border:1px dashed #c4cbd3; background:#fff; color:#374151; border-radius:7px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer;">+ Add group</button>
+            <div style="font-size:11.5px; color:#9aa3ad; line-height:1.5;">One box per replicate. Each X point has <span style="color:#6b7280; font-weight:600;">{{ replicates }}</span> replicate cells — change the count above to add or remove.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -468,6 +538,7 @@ class Component extends DCLogic {
     // upload + interaction
     uploadShape: 'auto', uploadError: '', uploadInfo: '',
     manualPairs: [], _pendingSel: null,
+    gridModalOpen: false,
   };
 
   PALETTE = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#D55E00', '#56B4E9', '#999999', '#000000'];
@@ -788,6 +859,10 @@ class Component extends DCLogic {
       onReplicates: (e) => this.setReplicates(+e.target.value),
       onAddGroup: () => this.addGroup(),
       onAddX: () => this.addX(),
+      gridModalOpen: S.gridModalOpen,
+      onOpenGridModal: () => this.set({ gridModalOpen: true }),
+      onCloseGridModal: () => this.set({ gridModalOpen: false }),
+      stopProp: (e) => e.stopPropagation(),
 
       // upload
       uploadShapeOpts: seg([{ key: 'auto', label: 'Auto' }, { key: 'long', label: 'Long' }, { key: 'wide', label: 'Wide' }], S.uploadShape, k => this.set({ uploadShape: k })),
