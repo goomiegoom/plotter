@@ -132,6 +132,35 @@ Gridline colour and marker/line weights also come from the active theme.
 - **PNG** — honours width×height (mm → px) and DPI (150/300/600) via a
   `dpi/96` scale factor. Filenames include the plot title.
 
+## Python / matplotlib companion (`python/prism_style.py`)
+
+For users who build manuscript figures in Python, `python/prism_style.py`
+reproduces the **same Prism visual language** as the web engine — white
+background, no grid, only left+bottom spines, black outward ticks, bold
+sans-serif labels, and the identical Wong colour-blind-safe `PALETTE` (the
+"Treated"/second-group accent is `#0072B2`, the same blue the app uses).
+
+```bash
+pip install -r python/requirements.txt
+python python/prism_style.py        # regenerates the demo panels
+```
+
+It defines global manuscript `rcParams` (Arial→DejaVu Sans, font 9 / bold axis
+labels 11, axis line ~1.6, tick width 1.4 / length 4, `savefig.dpi=600`, and
+`pdf.fonttype=42` + `svg.fonttype='none'` so exported text stays editable in
+Illustrator/Inkscape), a reusable `prism_style(ax)` helper, and three plotters
+that mirror the app's chart types:
+
+- `boxplot_with_points` — light-grey boxes, black median/whiskers/caps, jittered
+  black dots (outliers hidden), optional significance bars (`***`).
+- `barplot_with_points` — grey bars, mean ± SEM/SD capped error bars, jittered
+  replicate dots, manual y-range, rotated well-ID ticks.
+- `lineplot_with_error` — markers + lines + capped error bars for 1–2 groups
+  (black + dark-blue accent), frameless legend, in-plot annotations.
+
+Plus `add_panel_label(ax, "(C)")` for bold corner labels and `save_figure()`
+which writes PDF + SVG + PNG at 600 dpi in one call. No seaborn.
+
 ## Deploy (Vercel)
 
 `vercel.json` builds with `npm run build` and serves the repo root as static
