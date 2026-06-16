@@ -3,3 +3,8 @@ coverage/
 *.log
 .vercel
 .DS_Store
+# generated demo figures from python/prism_style.py
+python/*.png
+python/*.pdf
+python/*.svg
+__pycache__/
